@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ww-bg text-ww-text;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-ww-bg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ww-border rounded-full;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-ww-surface border border-ww-border rounded-xl p-4;
+  }
+
+  .btn-primary {
+    @apply bg-ww-accent hover:bg-ww-accent-hover text-black font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-ww-border hover:bg-opacity-80 text-ww-text font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-500 text-white font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .input {
+    @apply bg-ww-bg border border-ww-border rounded-lg px-3 py-2 text-ww-text text-sm
+           focus:outline-none focus:border-ww-accent transition-colors w-full;
+  }
+
+  .select {
+    @apply bg-ww-bg border border-ww-border rounded-lg px-3 py-2 text-ww-text text-sm
+           focus:outline-none focus:border-ww-accent transition-colors w-full cursor-pointer;
+  }
+
+  .tier-badge {
+    @apply font-bold text-sm px-2 py-0.5 rounded;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.echovaluecalc.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/AstyuteChick/Echo-Value-Calculator/main/evc_engine.py\")",
+      "Read(//tmp/**)"
+    ]
+  }
+}
