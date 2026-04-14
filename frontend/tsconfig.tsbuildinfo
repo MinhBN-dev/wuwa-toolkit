@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/EchoCard.tsx","./src/components/EchoUploader.tsx","./src/components/ScoreDisplay.tsx","./src/components/StatsEditor.tsx","./src/pages/Home.tsx","./src/pages/Saved.tsx","./src/services/api.ts","./src/types/echo.ts"],"version":"5.9.3"}
