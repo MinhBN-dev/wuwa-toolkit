@@ -1,0 +1,39 @@
+services:
+  backend:
+    build: ./backend
+    container_name: echoes-backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      # Override localhost → container name for DB
+      DATABASE_URL: postgresql+asyncpg://echoes_user:echoes_pass_2026@shared-postgres:5432/echoes_optimizer
+      UPLOAD_DIR: /app/uploads
+      ALLOWED_ORIGINS: http://echoes.local,http://localhost
+      DATA_DIR: /app/data
+    volumes:
+      - uploads:/app/uploads
+      - evc_state:/app/data
+    networks:
+      - internal
+      - easm_toolkit_default   # join existing postgres network
+
+  frontend:
+    build: ./frontend
+    container_name: echoes-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+  easm_toolkit_default:
+    external: true            # reuse existing postgres network
+
+volumes:
+  uploads:
+  evc_state:
