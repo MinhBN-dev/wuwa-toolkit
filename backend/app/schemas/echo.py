@@ -82,6 +82,8 @@ class OcrResult(BaseModel):
     echo_set: str | None = None
     echo_element: str | None = None
     echo_cost: int | None = None
+    main_stat_type: str | None = None
+    main_stat_value: float | None = None
     sub_stats: list[SubStat]
     confidence: float = 1.0
     raw_text: str | None = None
@@ -145,6 +147,7 @@ class SetScoreResponse(BaseModel):
 
 class EchoSetSlot(BaseModel):
     """One slot in a saved set (may be empty)."""
+    echo_id: uuid.UUID | None = None   # reference to echoes table
     echo_name: str = ""
     echo_cost: int = 4
     sub_stats: list[SubStat] = []

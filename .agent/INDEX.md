@@ -1,36 +1,61 @@
 # Echoes Optimizer — Agent Index
 
-Đây là file chỉ mục để agent đọc trước khi xem code.
-Mục đích: tiết kiệm context bằng cách biết chính xác cần đọc file nào cho từng task.
+Đọc file này TRƯỚC KHI browse code. Mục đích: biết chính xác cần đọc file nào, tránh tốn context.
 
 ## Tài liệu chính
 
 | File | Nội dung |
 |---|---|
-| `.agent/ARCHITECTURE.md` | Kiến trúc tổng quan, tech stack, data flow |
-| `.agent/BACKEND.md` | Chi tiết backend: models, routes, services, scoring algorithm |
-| `.agent/FRONTEND.md` | Chi tiết frontend: components, pages, API hooks |
-| `.agent/DEVOPS.md` | Cách chạy local, env variables, DB credentials |
+| `.agent/ARCHITECTURE.md` | Kiến trúc tổng quan, tech stack, data flow, scoring formula, dedup |
+| `.agent/BACKEND.md` | Models, API routes, services, game data |
+| `.agent/FRONTEND.md` | Components, pages, types, API calls, tier system |
+| `.agent/DEVOPS.md` | Chạy local, Docker, domain, DB credentials, GitHub |
+
+---
 
 ## Quick Reference
 
 ### Khi cần sửa scoring algorithm
-→ Đọc `.agent/BACKEND.md` phần Services → `scoring_service.py`
+→ `.agent/BACKEND.md` phần Services → `backend/app/services/scoring_service.py`
 → Character weights: `backend/app/data/game_data.py`
 
 ### Khi cần thêm character mới
-→ `backend/app/data/game_data.py`: thêm vào `CHARACTER_WEIGHTS` và `CHARACTER_LIST`
+→ `backend/app/data/game_data.py`: thêm vào `CHARACTER_WEIGHTS`, `CHARACTER_LIST`, và `CHARACTER_ER`
 → DB tự seed lại khi restart backend (nếu bảng characters trống)
 
 ### Khi cần sửa OCR prompt
 → `backend/app/services/ocr_service.py` → `EXTRACTION_PROMPT`
+→ Model hiện tại: gemini-2.5-flash (KHÔNG dùng gemini-2.0-flash — bị rate limit=0)
 
-### Khi cần sửa UI component
-→ Đọc `.agent/FRONTEND.md` phần Components
+### Khi cần sửa tier labels
+→ `frontend/src/utils/tier.ts` → `TIER_THRESHOLDS`
+→ Backend: `backend/app/services/scoring_service.py` → `TIER_LABELS`
 
 ### Khi cần thêm API endpoint
-→ Đọc `.agent/BACKEND.md` phần Routers
+→ `.agent/BACKEND.md` phần API Routes để biết pattern
+→ Thêm vào router tương ứng trong `backend/app/routers/`
+→ Đăng ký trong `backend/app/main.py`
+→ Thêm vào `frontend/src/services/api.ts`
+→ **CẬP NHẬT `.agent/BACKEND.md`**
+
+### Khi cần sửa UI component
+→ `.agent/FRONTEND.md` phần Components để tìm file đúng
+
+### Khi cần deploy lên Docker
+→ `.agent/DEVOPS.md` phần Docker Production
+→ Lệnh: `docker compose build <service> && docker compose up -d <service>`
 
 ### Khi có lỗi DB schema
-→ DROP tables trong PostgreSQL, restart backend → tự tạo lại
-→ Command: `PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer -c "DROP TABLE IF EXISTS echoes, characters CASCADE;"`
+→ Drop + recreate: xem `.agent/DEVOPS.md` phần Reset tables
+
+### Khi echoes.local không truy cập được
+→ Xem `.agent/DEVOPS.md` phần Common Issues → echoes.local không resolve
+
+### Khi cần hiểu EVC deduplication
+→ `.agent/ARCHITECTURE.md` phần Echo Deduplication
+→ Code: `backend/app/routers/echoes.py` → `find_or_create_echo()`
+
+### Khi cần hiểu EVC banner / changelog
+→ `.agent/ARCHITECTURE.md` phần Data Flow (EVC)
+→ Backend: `backend/app/routers/evc_status.py`
+→ Frontend: `frontend/src/components/EvcBanner.tsx`

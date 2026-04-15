@@ -64,6 +64,49 @@ async def create_echo(payload: EchoCreate, db: AsyncSession = Depends(get_db)):
     return result.scalar_one()
 
 
+def _canonical_substats(sub_stats: list) -> list[dict]:
+    """Sort substats by type for order-independent comparison."""
+    normalized = []
+    for s in sub_stats:
+        if isinstance(s, dict):
+            normalized.append({"type": s["type"], "value": round(float(s["value"]), 3)})
+        else:
+            normalized.append({"type": s.type, "value": round(float(s.value), 3)})
+    return sorted(normalized, key=lambda x: x["type"])
+
+
+@router.post("/find-or-create", response_model=EchoResponse, status_code=200)
+async def find_or_create_echo(payload: EchoCreate, db: AsyncSession = Depends(get_db)):
+    """Return existing echo if identical one exists, otherwise create new."""
+    canonical = _canonical_substats(payload.sub_stats)
+
+    # Fetch all echoes with same name and cost (narrow the search)
+    result = await db.execute(
+        select(Echo)
+        .options(selectinload(Echo.character))
+        .where(Echo.echo_name == payload.echo_name, Echo.echo_cost == payload.echo_cost)
+    )
+    candidates = result.scalars().all()
+
+    for echo in candidates:
+        if _canonical_substats(echo.sub_stats) == canonical:
+            return echo
+
+    # Not found — create new
+    echo = Echo(
+        **payload.model_dump(exclude={"sub_stats"}),
+        sub_stats=[s.model_dump() for s in payload.sub_stats],
+    )
+    db.add(echo)
+    await db.commit()
+    await db.refresh(echo)
+
+    result = await db.execute(
+        select(Echo).options(selectinload(Echo.character)).where(Echo.id == echo.id)
+    )
+    return result.scalar_one()
+
+
 @router.put("/{echo_id}", response_model=EchoResponse)
 async def update_echo(
     echo_id: uuid.UUID, payload: EchoUpdate, db: AsyncSession = Depends(get_db)

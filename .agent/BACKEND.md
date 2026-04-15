@@ -5,48 +5,52 @@
 ```
 backend/
 ├── .venv/               Python virtual environment
-├── .env                 Local env vars (DB, API key, etc.)
+├── .env                 Local env vars (DB, API keys, etc.)
+├── Dockerfile           python:3.12-slim, libpq5 only (no gcc)
 ├── requirements.txt
 └── app/
     ├── main.py          FastAPI app, CORS, lifespan, seeding
     ├── config.py        Pydantic settings (reads .env)
     ├── database.py      SQLAlchemy async engine, Base, get_db, init_db
     ├── models/
-    │   └── echo.py      Echo, Character ORM models
+    │   └── echo.py      Echo, Character, EchoSet ORM models
     ├── schemas/
     │   └── echo.py      Pydantic schemas (request/response)
     ├── routers/
-    │   ├── echoes.py    CRUD: GET/POST/PUT/DELETE /api/v1/echoes
-    │   ├── characters.py GET /api/v1/characters, GET /api/v1/characters/game-data
-    │   ├── ocr.py       POST /api/v1/ocr/extract (image upload → Claude Vision)
-    │   └── scoring.py   POST /api/v1/score/calculate
+    │   ├── echoes.py    CRUD + find-or-create: /api/v1/echoes
+    │   ├── characters.py GET /characters, GET /characters/game-data (incl. ER data)
+    │   ├── ocr.py       POST /ocr/extract (image → Gemini Vision)
+    │   ├── scoring.py   POST /score/calculate, POST /score/calculate-set
+    │   ├── sets.py      CRUD: /sets (saved echo sets)
+    │   └── evc_status.py GET /evc-status, POST /evc-status/acknowledge
     ├── services/
-    │   ├── ocr_service.py     Claude Vision integration, image encoding
+    │   ├── ocr_service.py     Gemini Vision integration
     │   └── scoring_service.py Weighted scoring algorithm
     └── data/
-        └── game_data.py  CHARACTER_WEIGHTS, SUB_STAT_MAX, CHARACTER_LIST, TIER_THRESHOLDS
+        └── game_data.py  CHARACTER_WEIGHTS, SUB_STAT_MAX, CHARACTER_LIST, ER data
 ```
 
 ## Models
 
 ### Character
-- id (UUID PK)
-- name (str, unique)
-- element (Glacio/Fusion/Electro/Aero/Spectro/Havoc)
-- weapon_type (str)
-- role (DPS/SubDPS/Support/Healer)
+- id (UUID PK), name (unique), element, weapon_type, role
 
 ### Echo
 - id (UUID PK)
-- character_id (FK → characters.id, nullable)
+- character_id (FK nullable)
 - echo_name, echo_set, echo_element, echo_cost (1/3/4)
-- main_stat_type, main_stat_value (float)
+- main_stat_type, main_stat_value (nullable — not used in scoring)
 - sub_stats (JSON: [{type, value}, ...] max 5)
-- total_er (float, nullable) — total ER% của cả build
-- score, score_percent (float 0-100), tier (S/A/B/C/D)
-- image_path (str, nullable)
-- notes (text, nullable)
-- created_at (datetime)
+- total_er (float nullable) — total ER% của cả build
+- score, score_percent (float 0-100), tier (str)
+- image_path, notes, created_at
+
+### EchoSet
+- id (UUID PK), name
+- character_id (FK nullable), character_name
+- total_er, set_score, set_tier
+- slots (JSON list of EchoSetSlot — xem schema)
+- created_at
 
 ## API Routes
 
@@ -54,44 +58,65 @@ backend/
 |---|---|---|
 | GET | /api/v1/health | Health check |
 | GET | /api/v1/characters | List all characters |
-| GET | /api/v1/characters/game-data | Static game data (sets, elements, stat options) |
+| GET | /api/v1/characters/game-data | Static game data + ER targets |
 | GET | /api/v1/echoes | List echoes (filter: character_id) |
 | GET | /api/v1/echoes/{id} | Get one echo |
-| POST | /api/v1/echoes | Create/save echo |
+| POST | /api/v1/echoes | Create echo (always new) |
+| POST | /api/v1/echoes/find-or-create | Dedup: tìm trùng → trả cũ, tạo mới nếu chưa có |
 | PUT | /api/v1/echoes/{id} | Update echo |
 | DELETE | /api/v1/echoes/{id} | Delete echo |
-| POST | /api/v1/ocr/extract | Upload image → extract stats |
-| POST | /api/v1/score/calculate | Calculate score |
+| POST | /api/v1/ocr/extract | Upload image → extract stats via Gemini |
+| POST | /api/v1/score/calculate | Calculate single echo score |
+| POST | /api/v1/score/calculate-set | Calculate full set score (mean của 5 echo) |
+| GET | /api/v1/sets | List saved echo sets |
+| POST | /api/v1/sets | Save echo set |
+| DELETE | /api/v1/sets/{id} | Delete echo set |
+| GET | /api/v1/evc-status | Fetch EVC changelog, compare với acknowledged |
+| POST | /api/v1/evc-status/acknowledge | Mark version as seen |
+
+## Echo Deduplication (find-or-create)
+
+```python
+# Fingerprint: echo_name + echo_cost + sorted substats (by type, rounded 3dp)
+# Fetch candidates by (echo_name, echo_cost), so Python-side compare substats
+# Returns existing echo nếu match, else creates new
+```
+File: `routers/echoes.py` → `find_or_create_echo()` + helper `_canonical_substats()`
+
+## EVC Status
+
+File: `routers/evc_status.py`
+- Fetch HTML từ https://www.echovaluecalc.com/logs
+- Parse regex: `<h3>DD.MM.YYYY</h3>\s*<ul>...</ul>`
+- Compare với `acknowledged_date` trong `evc_status.json`
+- `DATA_DIR` env var: thư mục chứa `evc_status.json` (default: backend root, Docker: /app/data)
 
 ## Services
 
 ### ocr_service.py
-- Model: gemini-2.5-flash (Google, free tier, không cần credit card)
-- Note: gemini-2.0-flash và gemini-2.0-flash-lite bị limit=0 trên project mới → dùng gemini-2.5-flash
-- SDK: google-genai (unified Google GenAI SDK)
-- API key: GOOGLE_API_KEY trong backend/.env (lấy tại aistudio.google.com)
-- Sends base64 image + structured prompt
-- Returns: echo_name, echo_set, echo_element, echo_cost, main_stat, sub_stats (up to 5)
-- Strips markdown fences from response before JSON parse
+- Model: gemini-2.5-flash (free tier, không cần credit card)
+- SDK: google-genai
+- API key: GOOGLE_API_KEY trong backend/.env
+- Returns: echo_name, echo_set, echo_element, echo_cost, **main_stat_type**, **main_stat_value**, sub_stats (≤5)
+- main_stat: dòng stat lớn nhất (không có bullet) — extracted từ prompt, không filter ra như trước
+- EasyOCR fallback cũng detect main stat (value > _SUBSTAT_MAX_VAL ceiling)
 
 ### scoring_service.py
-- `calculate_score(sub_stats, character_name)` → dict
-- Uses CHARACTER_WEIGHTS from game_data.py
-- Falls back to `get_default_weights()` if no character
-- Normalizes to 0-100 scale based on top 5 weighted stats
+- `calculate_score(sub_stats, character_name, echo_cost, total_er)` → dict
+- Uses CHARACTER_WEIGHTS từ game_data.py
+- Fallback to default_weights nếu không có character
+- Normalizes to 0-100 scale (top 5 weighted stats = max_possible)
 
 ## Game Data (game_data.py)
 
-### SUB_STAT_MAX
-Max value for each sub-stat (5 max rolls):
+### SUB_STAT_MAX (5 max rolls)
 - Crit Rate: 10.5%, Crit DMG: 21%, ATK%: 11.6%, Flat ATK: 60
 - HP%: 11.6%, Flat HP: 580, DEF%: 14.7%, Flat DEF: 70
-- Basic/Heavy/Skill/Liberation ATK DMG%: 11.6% each, ER%: 12.4%
+- Basic/Heavy/Skill/Liberation ATK DMG%: 11.6%, ER%: 12.4%
 
 ### CHARACTER_WEIGHTS
-Dict of {character_name: {stat_type: weight}}
-Weight 1.0 = best, 0.0 = irrelevant
-Currently: 28 characters defined
+`{character_name: {stat_type: weight}}` — Weight 1.0 = best, 0.0 = irrelevant
 
-### CHARACTER_LIST
-List of dicts for seeding the characters table on startup
+### CHARACTER_ER (trong characters router game-data response)
+`{character_name: {er_target: float, er_imp: float, er_imp_label: Min|Norm|Vital|Max}}`
+- Min: er_imp < 0.3 | Norm: 0.3–0.65 | Vital: 0.65–0.9 | Max: ≥ 0.9
