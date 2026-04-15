@@ -54,7 +54,7 @@ Extract echo info and return ONLY valid JSON, no markdown, no extra text.
 A Wuthering Waves echo panel has:
 1. Echo name (top, bold)
 2. COST badge (1, 3, or 4)
-3. A large MAIN STAT line (e.g. "Crit. DMG  44.0%") — IGNORE THIS COMPLETELY
+3. A large MAIN STAT line (e.g. "Crit. DMG  44.0%") — EXTRACT THIS as main_stat
 4. A secondary fixed flat stat line (e.g. "ATK  150") — IGNORE THIS COMPLETELY
 5. SUB-STATS: exactly 5 lines preceded by a bullet "·" or small dot — EXTRACT ONLY THESE
 
@@ -64,6 +64,8 @@ A Wuthering Waves echo panel has:
   "echo_set": "echo set name (e.g. Molten Rift, Void Thunder, Lingering Tunes)",
   "echo_element": "element type: Glacio / Fusion / Electro / Aero / Spectro / Havoc",
   "echo_cost": 4,
+  "main_stat_type": "Crit. DMG",
+  "main_stat_value": 44.0,
   "sub_stats": [
     {"type": "Skill DMG%", "value": 10.1},
     {"type": "Flat ATK", "value": 50},
@@ -74,19 +76,27 @@ A Wuthering Waves echo panel has:
   "raw_text": "all text visible in the image"
 }
 
+=== MAIN STAT TYPES — use EXACTLY these strings ===
+"HP", "ATK", "DEF", "HP%", "ATK%", "DEF%",
+"Crit. Rate", "Crit. DMG", "Healing Bonus",
+"Glacio DMG Bonus", "Fusion DMG Bonus", "Electro DMG Bonus",
+"Aero DMG Bonus", "Spectro DMG Bonus", "Havoc DMG Bonus",
+"Energy Regen"
+
 === SUB-STAT TYPE NAMES — use EXACTLY these strings ===
 "Crit Rate", "Crit DMG", "ATK%", "Flat ATK", "HP%", "Flat HP",
 "DEF%", "Flat DEF", "Basic ATK DMG%", "Heavy ATK DMG%",
 "Skill DMG%", "Liberation DMG%", "ER%"
 
 === RULES ===
+- main_stat: the LARGEST / most prominent stat line (not preceded by bullet). Value is number only (no % sign).
 - sub_stats: ONLY the bullet-point stats (up to 5). Never include main stat or secondary flat stat.
 - Values are numbers only (no % sign)
 - "Resonance Skill DMG Bonus" → "Skill DMG%"
 - "Resonance Liberation DMG Bonus" → "Liberation DMG%"
 - "Basic Attack DMG Bonus" → "Basic ATK DMG%"
 - "Heavy Attack DMG Bonus" → "Heavy ATK DMG%"
-- "Energy Regen" → "ER%"
+- "Energy Regen" → "ER%" (for sub_stats) or "Energy Regen" (for main_stat)
 - ATK with value ≥ 100 (like ATK 150) is the secondary fixed stat — do NOT include in sub_stats
 - If a field is unclear, use null"""
 
@@ -138,6 +148,8 @@ def _parse_response(raw_response: str) -> dict:
         "echo_set": data.get("echo_set"),
         "echo_element": data.get("echo_element"),
         "echo_cost": int(data.get("echo_cost") or 4),
+        "main_stat_type": data.get("main_stat_type"),
+        "main_stat_value": float(data["main_stat_value"]) if data.get("main_stat_value") is not None else None,
         "sub_stats": sub_stats[:5],
         "confidence": 1.0,
         "raw_text": data.get("raw_text"),
@@ -454,16 +466,21 @@ def _parse_easyocr_results(results: list) -> dict:
         if mapped:
             known_stat_lines.append((mapped, value, has_pct))
 
-    # ── Separate sub-stats from main/secondary stats ──
-    # Main stat: value exceeds sub-stat max for that type
-    # Secondary stat: Flat ATK ≥ 100 or Flat HP ≥ 1000 (already in _SECONDARY_THRESHOLDS)
+    # ── Separate main stat from sub-stats ──
+    # Main stat: value exceeds sub-stat max for that type → capture first one
+    # Secondary stat: Flat ATK ≥ 100 or Flat HP ≥ 1000 → skip
     sub_stats: list[dict] = []
+    main_stat_type: str | None = None
+    main_stat_value: float | None = None
+
     for mapped, value, _ in known_stat_lines:
-        # Skip if value exceeds sub-stat ceiling (→ it's a main stat)
         max_val = _SUBSTAT_MAX_VAL.get(mapped)
         if max_val and value > max_val:
+            # It's a main stat — capture first occurrence
+            if main_stat_type is None:
+                main_stat_type = mapped
+                main_stat_value = value
             continue
-        # Skip secondary fixed flat stats
         threshold = _SECONDARY_THRESHOLDS.get(mapped)
         if threshold and value >= threshold:
             continue
@@ -474,6 +491,8 @@ def _parse_easyocr_results(results: list) -> dict:
         "echo_set": None,
         "echo_element": None,
         "echo_cost": echo_cost,
+        "main_stat_type": main_stat_type,
+        "main_stat_value": main_stat_value,
         "sub_stats": sub_stats[:5],
         "confidence": 0.6,
         "raw_text": '\n'.join(row_texts),
