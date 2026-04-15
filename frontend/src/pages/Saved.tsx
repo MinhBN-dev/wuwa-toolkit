@@ -4,8 +4,10 @@ import { Search } from 'lucide-react'
 import { toast } from 'sonner'
 import EchoCard from '../components/EchoCard'
 import { getEchoes, getCharacters, deleteEcho } from '../services/api'
+import { TIER_THRESHOLDS, getTierLabel, getTierClass } from '../utils/tier'
 
-const TIERS = ['S', 'A', 'B', 'C', 'D']
+// All 7 EVC tier labels in descending order
+const TIER_LABELS = TIER_THRESHOLDS.map(([, label]) => label)
 
 export default function SavedPage() {
   const qc = useQueryClient()
@@ -33,7 +35,10 @@ export default function SavedPage() {
   })
 
   const filtered = (echoData?.echoes ?? []).filter(e => {
-    if (selectedTier && e.tier !== selectedTier) return false
+    if (selectedTier) {
+      const echoTierLabel = e.score_percent != null ? getTierLabel(e.score_percent) : 'Unbuilt'
+      if (echoTierLabel !== selectedTier) return false
+    }
     if (search && !e.echo_name.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
@@ -70,24 +75,20 @@ export default function SavedPage() {
           ))}
         </select>
 
-        <div className="flex gap-1">
-          {TIERS.map(t => (
-            <button
-              key={t}
-              onClick={() => setSelectedTier(t === selectedTier ? '' : t)}
-              className={`w-8 h-8 rounded text-xs font-bold border transition-all ${
-                selectedTier === t
-                  ? t === 'S' ? 'bg-tier-S/20 border-tier-S text-tier-S' :
-                    t === 'A' ? 'bg-tier-A/20 border-tier-A text-tier-A' :
-                    t === 'B' ? 'bg-tier-B/20 border-tier-B text-tier-B' :
-                    t === 'C' ? 'bg-tier-C/20 border-tier-C text-tier-C' :
-                    'bg-tier-D/20 border-tier-D text-tier-D'
-                  : 'border-ww-border text-ww-muted hover:border-ww-accent/50'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-1">
+          {TIER_LABELS.map(label => {
+            const active = selectedTier === label
+            const colorClass = active ? getTierClass(label) : 'border-ww-border text-ww-muted hover:border-ww-accent/50'
+            return (
+              <button
+                key={label}
+                onClick={() => setSelectedTier(label === selectedTier ? '' : label)}
+                className={`px-2 h-7 rounded text-xs font-semibold border transition-all whitespace-nowrap ${colorClass}`}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
