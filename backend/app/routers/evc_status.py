@@ -4,6 +4,7 @@ Fetches https://www.echovaluecalc.com/logs, parses the latest entry,
 and compares it against the last acknowledged date stored in a local JSON file.
 """
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,8 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/evc-status", tags=["EVC Status"])
 
-STATUS_FILE = Path(__file__).parent.parent.parent / "evc_status.json"
+_DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent.parent.parent))
+STATUS_FILE = _DATA_DIR / "evc_status.json"
 CHANGELOG_URL = "https://www.echovaluecalc.com/logs"
 
 
