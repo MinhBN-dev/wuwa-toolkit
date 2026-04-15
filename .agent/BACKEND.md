@@ -94,12 +94,16 @@ File: `routers/evc_status.py`
 ## Services
 
 ### ocr_service.py
-- Model: gemini-2.5-flash (free tier, không cần credit card)
-- SDK: google-genai
-- API key: GOOGLE_API_KEY trong backend/.env
+Provider priority (local-first):
+1. **EasyOCR** (local, no API key) — primary, always tried first; ~140 MB models pre-downloaded in Docker image
+2. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (GOOGLE_API_KEY)
+3. **OpenAI** gpt-4o-mini → gpt-4o (OPENAI_API_KEY)
+4. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (ANTHROPIC_API_KEY)
+
+- 429/quota errors skip to next model immediately; 5xx retries up to 3×
 - Returns: echo_name, echo_set, echo_element, echo_cost, **main_stat_type**, **main_stat_value**, sub_stats (≤5)
-- main_stat: dòng stat lớn nhất (không có bullet) — extracted từ prompt, không filter ra như trước
-- EasyOCR fallback cũng detect main stat (value > _SUBSTAT_MAX_VAL ceiling)
+- EasyOCR: detects main stat via `_SUBSTAT_MAX_VAL` ceiling; maps raw text to standard stat names
+- API providers: structured JSON extraction via `EXTRACTION_PROMPT`
 
 ### scoring_service.py
 - `calculate_score(sub_stats, character_name, echo_cost, total_er)` → dict

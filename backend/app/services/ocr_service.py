@@ -1,12 +1,14 @@
 """
-OCR service — multi-provider vision with automatic fallback.
+OCR service — local-first with API fallback.
 
 Provider priority:
-  1. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
-  2. OpenAI          (gpt-4o-mini → gpt-4o)
-  3. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
+  1. EasyOCR (local, no API key, always available)
+  2. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
+  3. OpenAI          (gpt-4o-mini → gpt-4o)
+  4. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
 
-429/quota errors skip to next model immediately.
+EasyOCR is tried first. If it returns no sub-stats (bad image quality, unclear layout),
+API providers are attempted in order. 429/quota errors skip to next model immediately.
 503/5xx errors retry up to 3× with backoff before falling back.
 """
 import asyncio
@@ -531,40 +533,32 @@ async def _try_easyocr(image_bytes: bytes, _mime_type: str) -> dict | None:
 async def extract_echo_stats(image_path: str) -> dict:
     """
     Extract echo sub-stats from image.
-    Tries Gemini first, then OpenAI. Raises if both unavailable.
+    Tries EasyOCR (local) first; falls back to API providers if local fails.
     """
     image_bytes, mime_type = read_image_bytes(image_path)
 
-    # TODO: re-enable API providers when needed
-    # result = await _try_gemini(image_bytes, mime_type)
-    # if result is not None:
-    #     return result
-
-    # result = await _try_openai(image_bytes, mime_type)
-    # if result is not None:
-    #     return result
-
-    # result = await _try_anthropic(image_bytes, mime_type)
-    # if result is not None:
-    #     return result
-
+    # 1. Local OCR — no API key, always try first
     result = await _try_easyocr(image_bytes, mime_type)
     if result is not None:
         return result
 
-    providers = []
-    if settings.GOOGLE_API_KEY:
-        providers.append("Gemini")
-    if settings.OPENAI_API_KEY:
-        providers.append("OpenAI")
-    if settings.ANTHROPIC_API_KEY:
-        providers.append("Claude")
-    if not providers:
-        raise RuntimeError(
-            "Chưa cấu hình API key nào. "
-            "Thêm GOOGLE_API_KEY, OPENAI_API_KEY hoặc ANTHROPIC_API_KEY vào backend/.env"
-        )
+    # 2. Gemini Vision
+    result = await _try_gemini(image_bytes, mime_type)
+    if result is not None:
+        return result
+
+    # 3. OpenAI Vision
+    result = await _try_openai(image_bytes, mime_type)
+    if result is not None:
+        return result
+
+    # 4. Anthropic Claude Vision
+    result = await _try_anthropic(image_bytes, mime_type)
+    if result is not None:
+        return result
+
     raise RuntimeError(
-        f"Tất cả providers ({', '.join(providers)}) đều hết quota hoặc không khả dụng. "
-        "Thử lại sau hoặc kiểm tra billing."
+        "Không thể đọc echo từ ảnh này. "
+        "EasyOCR không detect được sub-stats, và tất cả API providers đều không khả dụng hoặc hết quota. "
+        "Hãy thử ảnh rõ hơn hoặc kiểm tra API keys."
     )
