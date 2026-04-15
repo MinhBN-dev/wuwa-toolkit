@@ -1,29 +1,40 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, X, ExternalLink } from 'lucide-react'
 import { getEvcStatus, acknowledgeEvcUpdate } from '../services/api'
 
+const LS_KEY = 'evc_acknowledged_date'
+
+function getLocalAck(): string | null {
+  return localStorage.getItem(LS_KEY)
+}
+
+function setLocalAck(date: string) {
+  localStorage.setItem(LS_KEY, date)
+}
+
 export default function EvcBanner() {
   const qc = useQueryClient()
-  const [dismissed, setDismissed] = useState(false)
 
   const { data } = useQuery({
     queryKey: ['evc-status'],
     queryFn: getEvcStatus,
-    // Check once per session — no auto-refetch
     staleTime: Infinity,
     retry: false,
   })
 
   const ack = useMutation({
     mutationFn: (date: string) => acknowledgeEvcUpdate(date),
-    onSuccess: () => {
+    onSuccess: (_res, date) => {
+      setLocalAck(date)
       qc.invalidateQueries({ queryKey: ['evc-status'] })
-      setDismissed(true)
     },
   })
 
-  if (!data?.has_update || dismissed) return null
+  if (!data?.has_update) return null
+
+  // Hide if already acknowledged in this browser (localStorage)
+  const localAck = getLocalAck()
+  if (data.latest_date && localAck && localAck >= data.latest_date) return null
 
   return (
     <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2">

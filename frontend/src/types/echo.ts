@@ -41,6 +41,8 @@ export interface OcrResult {
   echo_set: string | null
   echo_element: string | null
   echo_cost: number | null
+  main_stat_type: string | null
+  main_stat_value: number | null
   sub_stats: SubStat[]
   confidence: number
   raw_text: string | null
@@ -71,6 +73,8 @@ export interface EchoCreate {
   echo_set?: string
   echo_element?: string
   echo_cost: number
+  main_stat_type?: string | null
+  main_stat_value?: number | null
   sub_stats: SubStat[]
   total_er?: number
   score?: number
@@ -112,6 +116,7 @@ export interface SetScoreResponse {
 }
 
 export interface EchoSetSlot {
+  echo_id: string | null
   echo_name: string
   echo_cost: number
   sub_stats: SubStat[]

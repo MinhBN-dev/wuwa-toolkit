@@ -28,6 +28,9 @@ export const getEcho = (id: string) =>
 export const createEcho = (data: EchoCreate) =>
   api.post<Echo>('/echoes', data).then(r => r.data)
 
+export const findOrCreateEcho = (data: EchoCreate) =>
+  api.post<Echo>('/echoes/find-or-create', data).then(r => r.data)
+
 export const updateEcho = (id: string, data: Partial<EchoCreate>) =>
   api.put<Echo>(`/echoes/${id}`, data).then(r => r.data)
 
