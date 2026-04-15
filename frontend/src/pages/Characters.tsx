@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Pencil, X } from 'lucide-react'
 import { getCharacters } from '../services/api'
 import type { Character } from '../types/echo'
 import {
@@ -10,6 +11,8 @@ import {
   BUILD_STATUS_META,
   BUILD_STATUS_CYCLE,
   type BuildStatus,
+  loadNotes,
+  saveNote,
 } from '../utils/character'
 
 const ELEMENT_COLORS: Record<string, string> = {
@@ -47,6 +50,9 @@ export default function CharactersPage() {
   })
 
   const [statuses, setStatuses] = useState<Record<string, BuildStatus>>(loadBuildStatuses)
+  const [notes, setNotes] = useState<Record<string, string>>(loadNotes)
+  const [editingNote, setEditingNote] = useState<string | null>(null) // baseName being edited
+  const [draftNote, setDraftNote] = useState('')
   const [filterElement, setFilterElement] = useState('All')
   const [filterStatus, setFilterStatus] = useState<BuildStatus | 'all'>('all')
   const [search, setSearch] = useState('')
@@ -73,6 +79,23 @@ export default function CharactersPage() {
     const next = BUILD_STATUS_CYCLE[(BUILD_STATUS_CYCLE.indexOf(current) + 1) % BUILD_STATUS_CYCLE.length]
     saveBuildStatus(baseName, next)
     setStatuses(prev => ({ ...prev, [baseName]: next }))
+  }
+
+  const openNote = (e: React.MouseEvent, baseName: string) => {
+    e.stopPropagation()
+    setDraftNote(notes[baseName] ?? '')
+    setEditingNote(baseName)
+  }
+
+  const commitNote = (baseName: string) => {
+    saveNote(baseName, draftNote)
+    setNotes(prev => {
+      const next = { ...prev }
+      if (draftNote.trim()) next[baseName] = draftNote
+      else delete next[baseName]
+      return next
+    })
+    setEditingNote(null)
   }
 
   // Summary counts
@@ -157,22 +180,25 @@ export default function CharactersPage() {
             const status = statuses[base] ?? 'not_built'
             const meta = BUILD_STATUS_META[status]
             const elColor = ELEMENT_COLORS[c.element] ?? 'text-ww-muted border-ww-border'
+            const note = notes[base] ?? ''
+            const isEditing = editingNote === base
 
             return (
               <div
                 key={base}
-                className="card p-3 flex flex-col items-center gap-2 cursor-pointer hover:border-ww-accent/50 transition-all select-none"
-                onClick={() => cycleStatus(base)}
-                title={`Click to cycle status — current: ${meta.label}`}
+                className="card p-3 flex flex-col items-center gap-2 hover:border-ww-accent/50 transition-all"
               >
-                {/* Icon */}
-                <div className={`w-16 h-16 rounded-full overflow-hidden border-2 ${meta.color} transition-all`}>
+                {/* Icon — click to cycle status */}
+                <div
+                  className={`w-16 h-16 rounded-full overflow-hidden border-2 ${meta.color} transition-all cursor-pointer select-none`}
+                  onClick={() => cycleStatus(base)}
+                  title={`Click to cycle: ${meta.label}`}
+                >
                   <img
                     src={getCharacterIcon(c.name)}
                     alt={base}
                     className="w-full h-full object-cover"
                     onError={e => {
-                      // Fallback: colored circle with initial
                       const t = e.currentTarget
                       t.style.display = 'none'
                       t.parentElement!.classList.add('flex', 'items-center', 'justify-center', 'bg-ww-border', 'text-ww-muted', 'text-lg', 'font-bold')
@@ -182,19 +208,61 @@ export default function CharactersPage() {
                 </div>
 
                 {/* Name */}
-                <span className="text-xs font-medium text-ww-text text-center leading-tight line-clamp-2">
+                <span className="text-xs font-medium text-ww-text text-center leading-tight line-clamp-2 select-none">
                   {base}
                 </span>
 
-                {/* Element badge */}
+                {/* Element + status badges */}
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${elColor}`}>
                   {c.element}
                 </span>
-
-                {/* Build status badge */}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${meta.color}`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold cursor-pointer select-none ${meta.color}`}
+                  onClick={() => cycleStatus(base)}
+                >
                   {meta.label}
                 </span>
+
+                {/* Note area */}
+                {isEditing ? (
+                  <div className="w-full" onClick={e => e.stopPropagation()}>
+                    <textarea
+                      autoFocus
+                      rows={3}
+                      className="input w-full text-[11px] resize-none"
+                      placeholder="Notes... (e.g. need better crit rate echo)"
+                      value={draftNote}
+                      onChange={e => setDraftNote(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingNote(null)
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitNote(base) }
+                      }}
+                    />
+                    <div className="flex gap-1 mt-1">
+                      <button
+                        className="btn-primary flex-1 text-[10px] py-0.5"
+                        onClick={() => commitNote(base)}
+                      >Save</button>
+                      <button
+                        className="btn-secondary px-2 text-[10px] py-0.5"
+                        onClick={e => { e.stopPropagation(); setEditingNote(null) }}
+                      ><X className="w-3 h-3" /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className={`w-full flex items-start gap-1 text-left rounded px-1.5 py-1 text-[10px] leading-snug border transition-all ${
+                      note
+                        ? 'border-ww-accent/30 text-ww-muted hover:border-ww-accent/60'
+                        : 'border-dashed border-ww-border text-ww-border hover:border-ww-accent/40 hover:text-ww-muted'
+                    }`}
+                    onClick={e => openNote(e, base)}
+                    title="Add / edit note"
+                  >
+                    <Pencil className="w-2.5 h-2.5 mt-0.5 shrink-0" />
+                    <span className="line-clamp-2">{note || 'Add note...'}</span>
+                  </button>
+                )}
               </div>
             )
           })}
@@ -202,7 +270,7 @@ export default function CharactersPage() {
       )}
 
       <p className="text-xs text-ww-muted text-center">
-        Click a character card to cycle build status · Status saved in browser
+        Click icon or status badge to cycle build status · Click note area to add/edit memo · Saved in browser
       </p>
     </div>
   )

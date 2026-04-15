@@ -55,3 +55,25 @@ export const BUILD_STATUS_META: Record<BuildStatus, { label: string; color: stri
 }
 
 export const BUILD_STATUS_CYCLE: BuildStatus[] = ['not_built', 'building', 'built']
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+
+const LS_NOTES_KEY = 'character_notes'
+
+export function loadNotes(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LS_NOTES_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+export function saveNote(baseName: string, note: string): void {
+  const all = loadNotes()
+  if (note.trim()) {
+    all[baseName] = note
+  } else {
+    delete all[baseName]
+  }
+  localStorage.setItem(LS_NOTES_KEY, JSON.stringify(all))
+}
