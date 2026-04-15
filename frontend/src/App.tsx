@@ -3,6 +3,7 @@ import { Zap } from 'lucide-react'
 import HomePage from './pages/Home'
 import SavedPage from './pages/Saved'
 import SetPage from './pages/Set'
+import CharactersPage from './pages/Characters'
 import EvcBanner from './components/EvcBanner'
 
 function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
               <NavItem to="/">Analyze</NavItem>
               <NavItem to="/set">Full Set</NavItem>
               <NavItem to="/saved">Saved Echoes</NavItem>
+              <NavItem to="/characters">Characters</NavItem>
             </nav>
           </div>
         </header>
@@ -50,6 +52,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/set" element={<SetPage />} />
             <Route path="/saved" element={<SavedPage />} />
+            <Route path="/characters" element={<CharactersPage />} />
           </Routes>
         </main>
 
