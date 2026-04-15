@@ -28,16 +28,21 @@ frontend/
     │   ├── ErInfo.tsx         Hiển thị ER Target + ER Importance khi chọn nhân vật
     │   ├── SaveEchoDialog.tsx Modal xác nhận trước khi lưu: name/cost/main stat editable, sub stats + score readonly
     │   └── EvcBanner.tsx      Banner vàng thông báo EVC update (localStorage + server ack)
+    ├── utils/
+    │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
+    │   └── character.ts     getBaseName, getCharacterSlug, getCharacterIcon, build status helpers
     └── pages/
-        ├── Home.tsx     Upload + edit + calculate + save echo lẻ
-        ├── Set.tsx      Full set 5 slots: OCR, paste target, score all, save/load set
-        └── Saved.tsx    Gallery echoes + saved sets: filter, delete
+        ├── Home.tsx         Upload + edit + calculate + save echo lẻ
+        ├── Set.tsx          Full set 5 slots: OCR, paste target, score all, save/load set
+        ├── Saved.tsx        Gallery echoes + saved sets: filter by EVC tier, delete
+        └── Characters.tsx   Character grid: icon, element, build status (localStorage)
 ```
 
 ## Routes
-- `/`       → Home (Analyze)
-- `/set`    → Full Set optimizer
-- `/saved`  → Saved Echoes + Saved Sets
+- `/`            → Home (Analyze)
+- `/set`         → Full Set optimizer
+- `/saved`       → Saved Echoes + Saved Sets
+- `/characters`  → Character roster with build status tracking
 
 ## Types (echo.ts)
 
