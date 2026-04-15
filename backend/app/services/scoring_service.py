@@ -231,3 +231,143 @@ def calculate_score(
         "breakdown": breakdown,
         "max_possible": round(ep, 4),
     }
+
+
+def _score_one_stateful(
+    sub_stats: list[dict],
+    char_rv: dict[str, float],
+    er_imp: float,
+    req_er: float,
+    er_net_av: float,
+    er_net_ep: float,
+) -> tuple[dict, float, float]:
+    """
+    Score a single echo while maintaining ER state across echoes (EVC 'full' mode).
+    Returns (result_dict, updated_er_net_av, updated_er_net_ep).
+    """
+    er_med = SUBSTAT_MEDIANS["ER(%)"]
+
+    # Find this echo's ER substat value
+    er_ssr = 0.0
+    for s in sub_stats:
+        if STAT_NAME_MAP.get(s.get("type", ""), "") == "ER(%)":
+            er_ssr = float(s.get("value", 0))
+            break
+
+    # ── AV ──
+    av = 0.0
+    breakdown: dict[str, float] = {}
+
+    # ER av contribution (updates er_net_av)
+    if er_net_av < 0:
+        er_av = (er_ssr / er_med) * er_imp
+        # er_net_av stays negative (EVC behaviour: not updated in deficit branch)
+    else:
+        new_er_net = er_net_av - er_ssr
+        if new_er_net < 0:
+            er_av = (-new_er_net / er_med) * er_imp
+            er_net_av = 0.0
+        else:
+            er_av = 0.0
+            er_net_av = new_er_net
+
+    av += er_av
+    if er_av > 0:
+        breakdown["ER%"] = round(er_av, 4)
+
+    for s in sub_stats:
+        raw_type = s.get("type", "")
+        value = float(s.get("value", 0))
+        evc_name = STAT_NAME_MAP.get(raw_type, "")
+        if not evc_name or evc_name == "ER(%)":
+            continue
+        display_name = EVC_TO_DISPLAY.get(evc_name, raw_type)
+        weight = char_rv.get(evc_name, 0.0)
+        median = SUBSTAT_MEDIANS.get(evc_name, 1.0)
+        contrib = (value / median) * weight
+        av += contrib
+        breakdown[display_name] = round(contrib, 4)
+
+    # ── EP (top-5 slot weights with stateful ER) ──
+    # EVC ep_er: same sign convention (negative = deficit)
+    if er_net_ep < 0:
+        er_net_ep_temp = er_net_ep - er_ssr
+        er_ep = er_imp if er_net_ep_temp / er_med <= -1 else (-er_net_ep_temp / er_med) * er_imp
+        # er_net_ep not updated in deficit branch
+    else:
+        new_er_net_ep = er_net_ep - er_ssr
+        if new_er_net_ep < 0:
+            er_ep = er_imp if new_er_net_ep / er_med <= -1 else (-new_er_net_ep / er_med) * er_imp
+            er_net_ep = 0.0
+        else:
+            er_ep = 0.0
+            er_net_ep = new_er_net_ep
+
+    all_weights = list(char_rv.values()) + [er_ep]
+    ep = sum(heapq.nlargest(5, all_weights))
+
+    if ep <= 0:
+        return (
+            {"score": 0.0, "score_percent": 0.0, "tier": "D",
+             "tier_label": "Unbuilt", "breakdown": {}, "max_possible": 0.0},
+            er_net_av, er_net_ep,
+        )
+
+    es = min((av / ep) * 100.0, 100.0)
+    return (
+        {
+            "score": round(av, 4),
+            "score_percent": round(es, 3),
+            "tier": _get_tier(es),
+            "tier_label": _get_tier_label(es),
+            "breakdown": breakdown,
+            "max_possible": round(ep, 4),
+        },
+        er_net_av, er_net_ep,
+    )
+
+
+def calculate_set_score(
+    echoes_sub_stats: list[list[dict]],
+    character_name: str | None = None,
+    total_er: float | None = None,
+) -> list[dict]:
+    """
+    Score a full set of echoes using EVC 'full' mode:
+    - Echoes with ER substat are processed first (to consume the ER deficit first)
+    - er_net_av / er_net_ep state is shared across all 5 echoes
+    Returns a list of result dicts in the ORIGINAL echo order.
+    """
+    char_data = CHARACTER_DATA.get(character_name) if character_name else None
+
+    if char_data is None or not char_data.get("anal", True):
+        # Support characters or unknown: score each independently (N/A)
+        return [calculate_score(ss, character_name, total_er) for ss in echoes_sub_stats]
+
+    char_rv: dict[str, float] = char_data["rv"]
+    req_er, er_imp, rc = char_data["er"]
+    total_er_val = total_er if total_er is not None else 100.0
+
+    # Initial ER net (EVC sign: negative = deficit)
+    er_net = (total_er_val - req_er) if req_er > 100 else 0.0
+    er_net_av = er_net
+    er_net_ep = er_net
+
+    # Process ER-carrying echoes first (EVC 'full' ordering)
+    def _has_er(ss: list[dict]) -> bool:
+        return any(STAT_NAME_MAP.get(s.get("type", ""), "") == "ER(%)"
+                   and float(s.get("value", 0)) > 0 for s in ss)
+
+    n = len(echoes_sub_stats)
+    er_first = [i for i in range(n) if _has_er(echoes_sub_stats[i])]
+    no_er = [i for i in range(n) if not _has_er(echoes_sub_stats[i])]
+    echo_order = er_first + no_er
+
+    results: list[dict | None] = [None] * n
+    for idx in echo_order:
+        r, er_net_av, er_net_ep = _score_one_stateful(
+            echoes_sub_stats[idx], char_rv, er_imp, req_er, er_net_av, er_net_ep
+        )
+        results[idx] = r
+
+    return [r or calculate_score([], character_name, total_er) for r in results]
