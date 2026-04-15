@@ -26,6 +26,8 @@ interface Props {
   charWeights?: Record<string, number>
   /** stat display name → list of valid roll values */
   subStatRolls?: Record<string, number[]>
+  /** hide echo name / cost fields — used when save dialog handles them */
+  hideMeta?: boolean
   onEchoInfoChange: (info: EchoInfo) => void
   onSubStatsChange: (stats: SubStat[]) => void
 }
@@ -57,7 +59,7 @@ function RollBar({ type, value }: { type: string; value: number }) {
 }
 
 export default function StatsEditor({
-  echoInfo, subStats, charWeights, subStatRolls,
+  echoInfo, subStats, charWeights, subStatRolls, hideMeta,
   onEchoInfoChange, onSubStatsChange,
 }: Props) {
   const updateStatType = (idx: number, newType: string) => {
@@ -82,35 +84,37 @@ export default function StatsEditor({
 
   return (
     <div className="space-y-4">
-      {/* Echo Identity */}
-      <div className="card space-y-3">
-        <h3 className="font-semibold text-ww-text text-sm uppercase tracking-wider text-ww-accent">
-          Echo Info
-        </h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-ww-muted mb-1 block">Echo Name</label>
-            <input
-              className="input"
-              value={echoInfo.echo_name}
-              onChange={e => onEchoInfoChange({ ...echoInfo, echo_name: e.target.value })}
-              placeholder="e.g. Inferno Rider"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-ww-muted mb-1 block">Cost</label>
-            <select
-              className="select"
-              value={echoInfo.echo_cost}
-              onChange={e => onEchoInfoChange({ ...echoInfo, echo_cost: parseInt(e.target.value) })}
-            >
-              <option value={4}>4-cost</option>
-              <option value={3}>3-cost</option>
-              <option value={1}>1-cost</option>
-            </select>
+      {/* Echo Identity — hidden when save dialog handles it */}
+      {!hideMeta && (
+        <div className="card space-y-3">
+          <h3 className="font-semibold text-ww-text text-sm uppercase tracking-wider text-ww-accent">
+            Echo Info
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-ww-muted mb-1 block">Echo Name</label>
+              <input
+                className="input"
+                value={echoInfo.echo_name}
+                onChange={e => onEchoInfoChange({ ...echoInfo, echo_name: e.target.value })}
+                placeholder="e.g. Inferno Rider"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-ww-muted mb-1 block">Cost</label>
+              <select
+                className="select"
+                value={echoInfo.echo_cost}
+                onChange={e => onEchoInfoChange({ ...echoInfo, echo_cost: parseInt(e.target.value) })}
+              >
+                <option value={4}>4-cost</option>
+                <option value={3}>3-cost</option>
+                <option value={1}>1-cost</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Sub Stats */}
       <div className="card space-y-3">

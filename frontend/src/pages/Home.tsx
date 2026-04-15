@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, RefreshCw, RotateCcw } from 'lucide-react'
+import { RefreshCw, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import EchoUploader from '../components/EchoUploader'
 import StatsEditor from '../components/StatsEditor'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ErInfo from '../components/ErInfo'
-import { getCharacters, getGameData, calculateScore, createEcho } from '../services/api'
+import SaveEchoDialog from '../components/SaveEchoDialog'
+import type { SaveEchoData } from '../components/SaveEchoDialog'
+import { getCharacters, getGameData, calculateScore, findOrCreateEcho } from '../services/api'
 import type { OcrResult, ScoreResponse, SubStat, Character } from '../types/echo'
 
 interface EchoInfo {
@@ -16,7 +18,6 @@ interface EchoInfo {
 
 const DEFAULT_ECHO_INFO: EchoInfo = { echo_name: '', echo_cost: 4 }
 
-/** Build the full sub-stat slot list for a character — ALL stats with weight > 0, sorted by weight desc */
 function defaultSubStatsForChar(
   charName: string,
   charWeights: Record<string, Record<string, number>>,
@@ -28,7 +29,6 @@ function defaultSubStatsForChar(
     .map(([type]) => ({ type, value: 0 }))
 }
 
-/** Snap an OCR value to the nearest valid roll value for that stat type */
 function snapToRoll(value: number, rolls: number[]): number {
   if (!rolls.length) return value
   return rolls.reduce((best, r) => Math.abs(r - value) < Math.abs(best - value) ? r : best)
@@ -37,20 +37,16 @@ function snapToRoll(value: number, rolls: number[]): number {
 export default function HomePage() {
   const qc = useQueryClient()
   const [echoInfo, setEchoInfo] = useState<EchoInfo>(DEFAULT_ECHO_INFO)
+  const [mainStatType, setMainStatType] = useState<string | null>(null)
+  const [mainStatValue, setMainStatValue] = useState<number | null>(null)
   const [subStats, setSubStats] = useState<SubStat[]>([])
   const [selectedChar, setSelectedChar] = useState<Character | null>(null)
   const [totalER, setTotalER] = useState<string>('100')
   const [scoreResult, setScoreResult] = useState<ScoreResponse | null>(null)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
 
-  const { data: characters = [] } = useQuery({
-    queryKey: ['characters'],
-    queryFn: getCharacters,
-  })
-
-  const { data: gameData } = useQuery({
-    queryKey: ['game-data'],
-    queryFn: getGameData,
-  })
+  const { data: characters = [] } = useQuery({ queryKey: ['characters'], queryFn: getCharacters })
+  const { data: gameData } = useQuery({ queryKey: ['game-data'], queryFn: getGameData })
 
   const scoreMut = useMutation({
     mutationFn: calculateScore,
@@ -59,12 +55,13 @@ export default function HomePage() {
   })
 
   const saveMut = useMutation({
-    mutationFn: createEcho,
+    mutationFn: findOrCreateEcho,
     onSuccess: () => {
-      toast.success('Echo saved!')
+      toast.success('Echo đã lưu!')
       qc.invalidateQueries({ queryKey: ['echoes'] })
+      setShowSaveDialog(false)
     },
-    onError: () => toast.error('Failed to save echo'),
+    onError: () => toast.error('Lưu thất bại'),
   })
 
   const charWeights = selectedChar && gameData
@@ -83,10 +80,10 @@ export default function HomePage() {
       echo_name: result.echo_name,
       echo_cost: result.echo_cost ?? prev.echo_cost,
     }))
+    setMainStatType(result.main_stat_type ?? null)
+    setMainStatValue(result.main_stat_value ?? null)
 
     const rolls = gameData?.sub_stat_rolls ?? {}
-
-    // Merge OCR values into pre-populated slots, snapping to nearest valid roll value
     if (subStats.length > 0) {
       const ocrMap = new Map(result.sub_stats.map(s => [s.type, s.value]))
       const merged = subStats.map(s => {
@@ -95,27 +92,22 @@ export default function HomePage() {
         const statRolls = rolls[s.type]
         return { ...s, value: statRolls ? snapToRoll(raw, statRolls) : raw }
       })
-      // Append any OCR stats not in the pre-populated list
       for (const ocrStat of result.sub_stats) {
         if (!merged.some(s => s.type === ocrStat.type)) {
           const statRolls = rolls[ocrStat.type]
-          const snapped = statRolls ? snapToRoll(ocrStat.value, statRolls) : ocrStat.value
-          merged.push({ type: ocrStat.type, value: snapped })
+          merged.push({ type: ocrStat.type, value: statRolls ? snapToRoll(ocrStat.value, statRolls) : ocrStat.value })
         }
       }
       setSubStats(merged)
     } else {
-      const snapped = result.sub_stats.map(s => {
+      setSubStats(result.sub_stats.map(s => {
         const statRolls = rolls[s.type]
         return { ...s, value: statRolls ? snapToRoll(s.value, statRolls) : s.value }
-      })
-      setSubStats(snapped)
+      }))
     }
-
     setScoreResult(null)
   }
 
-  // Only score stats that have value AND are relevant to the character (have weight)
   const activeSubStats = subStats.filter(s =>
     s.value > 0 && (!charWeights || charWeights[s.type] !== undefined)
   )
@@ -135,16 +127,14 @@ export default function HomePage() {
     })
   }
 
-  const handleSave = () => {
-    if (!echoInfo.echo_name.trim()) {
-      toast.warning('Please enter an echo name')
-      return
-    }
+  const handleSaveConfirm = (data: SaveEchoData) => {
     saveMut.mutate({
       character_id: selectedChar?.id,
-      echo_name: echoInfo.echo_name,
-      echo_cost: echoInfo.echo_cost,
-      sub_stats: activeSubStats,
+      echo_name: data.echo_name,
+      echo_cost: data.echo_cost,
+      main_stat_type: data.main_stat_type ?? undefined,
+      main_stat_value: data.main_stat_value ?? undefined,
+      sub_stats: data.sub_stats,
       total_er: totalERNum,
       score: scoreResult?.score,
       score_percent: scoreResult?.score_percent,
@@ -154,8 +144,21 @@ export default function HomePage() {
 
   const handleReset = () => {
     setEchoInfo(DEFAULT_ECHO_INFO)
+    setMainStatType(null)
+    setMainStatValue(null)
     setSubStats(selectedChar && gameData ? defaultSubStatsForChar(selectedChar.name, gameData.character_weights) : [])
     setScoreResult(null)
+  }
+
+  const saveDialogInitial: SaveEchoData = {
+    echo_name: echoInfo.echo_name,
+    echo_cost: echoInfo.echo_cost,
+    main_stat_type: mainStatType,
+    main_stat_value: mainStatValue,
+    sub_stats: activeSubStats,
+    score: scoreResult?.score,
+    score_percent: scoreResult?.score_percent,
+    tier: scoreResult?.tier,
   }
 
   return (
@@ -172,9 +175,7 @@ export default function HomePage() {
             >
               <option value="">— Chọn Resonator trước —</option>
               {characters.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.element} · {c.role})
-                </option>
+                <option key={c.id} value={c.id}>{c.name} ({c.element} · {c.role})</option>
               ))}
             </select>
 
@@ -207,13 +208,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Middle: Stats Editor */}
+        {/* Middle: Stats Editor (hideMeta — name/cost in save dialog) */}
         <div>
           <StatsEditor
             echoInfo={echoInfo}
             subStats={subStats}
             charWeights={charWeights ?? undefined}
             subStatRolls={gameData?.sub_stat_rolls}
+            hideMeta
             onEchoInfoChange={setEchoInfo}
             onSubStatsChange={setSubStats}
           />
@@ -239,12 +241,11 @@ export default function HomePage() {
 
           {scoreResult && (
             <button
-              onClick={handleSave}
-              disabled={saveMut.isPending}
+              onClick={() => setShowSaveDialog(true)}
               className="btn-secondary w-full flex items-center justify-center gap-2"
             >
               <Save className="w-4 h-4" />
-              {saveMut.isPending ? 'Saving...' : 'Save Echo'}
+              Save Echo
             </button>
           )}
 
@@ -259,6 +260,16 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      <SaveEchoDialog
+        open={showSaveDialog}
+        initial={saveDialogInitial}
+        scoreResult={scoreResult}
+        gameData={gameData}
+        isPending={saveMut.isPending}
+        onConfirm={handleSaveConfirm}
+        onClose={() => setShowSaveDialog(false)}
+      />
     </div>
   )
 }
