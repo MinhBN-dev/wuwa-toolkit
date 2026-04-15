@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Loader2, TrendingUp, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCharacters, getGameData, extractEchoStats, calculateScore, createEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
+import { getCharacters, getGameData, extractEchoStats, calculateScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
@@ -31,7 +31,9 @@ function defaultSubStatsForChar(
 interface SlotState {
   echoName: string
   echoCost: number
-  subStats: SubStat[]       // all slots (weighted)
+  mainStatType: string | null
+  mainStatValue: number | null
+  subStats: SubStat[]
   imageUrl: string | null
   loading: boolean
   scoreResult: ScoreResponse | null
@@ -41,6 +43,8 @@ function emptySlot(charName?: string, charWeights?: Record<string, Record<string
   return {
     echoName: '',
     echoCost: 4,
+    mainStatType: null,
+    mainStatValue: null,
     subStats: charName && charWeights ? defaultSubStatsForChar(charName, charWeights) : [],
     imageUrl: null,
     loading: false,
@@ -354,7 +358,30 @@ export default function SetPage() {
     setSaveLoading(true)
     try {
       const totalERNum = parseFloat(totalER) || undefined
-      const slotsData = slots.map(slot => ({
+
+      // find-or-create each filled slot → get echo IDs
+      const echoIdMap = new Map<number, string>()
+      await Promise.all(
+        slots.map(async (slot, idx) => {
+          if (!slot.echoName || !slot.subStats.some(s => s.value > 0)) return
+          const echo = await findOrCreateEcho({
+            character_id: selectedChar?.id,
+            echo_name: slot.echoName,
+            echo_cost: slot.echoCost,
+            main_stat_type: slot.mainStatType,
+            main_stat_value: slot.mainStatValue,
+            sub_stats: slot.subStats.filter(s => s.value > 0),
+            total_er: totalERNum,
+            score: slot.scoreResult?.score,
+            score_percent: slot.scoreResult?.score_percent,
+            tier: slot.scoreResult?.tier,
+          })
+          echoIdMap.set(idx, echo.id)
+        })
+      )
+
+      const slotsData = slots.map((slot, idx) => ({
+        echo_id: echoIdMap.get(idx) ?? null,
         echo_name: slot.echoName,
         echo_cost: slot.echoCost,
         sub_stats: slot.subStats.filter(s => s.value > 0),
@@ -363,24 +390,6 @@ export default function SetPage() {
         tier: slot.scoreResult?.tier ?? null,
         tier_label: slot.scoreResult?.tier_label ?? null,
       }))
-
-      // Save each echo with data to the echoes table
-      await Promise.all(
-        slots
-          .filter(slot => slot.echoName && slot.subStats.some(s => s.value > 0))
-          .map(slot =>
-            createEcho({
-              character_id: selectedChar?.id,
-              echo_name: slot.echoName,
-              echo_cost: slot.echoCost,
-              sub_stats: slot.subStats.filter(s => s.value > 0),
-              total_er: totalERNum,
-              score: slot.scoreResult?.score,
-              score_percent: slot.scoreResult?.score_percent,
-              tier: slot.scoreResult?.tier,
-            })
-          )
-      )
 
       await saveEchoSet({
         name: saveName.trim(),
@@ -422,6 +431,8 @@ export default function SetPage() {
       return {
         echoName: s.echo_name,
         echoCost: s.echo_cost,
+        mainStatType: null,
+        mainStatValue: null,
         subStats,
         imageUrl: null,
         loading: false,
@@ -492,6 +503,8 @@ export default function SetPage() {
       updateSlot(idx, {
         echoName: result.echo_name,
         echoCost: result.echo_cost ?? 4,
+        mainStatType: result.main_stat_type ?? null,
+        mainStatValue: result.main_stat_value ?? null,
         subStats: merged,
         loading: false,
       })
