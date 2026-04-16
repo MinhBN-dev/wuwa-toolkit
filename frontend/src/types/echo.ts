@@ -16,18 +16,15 @@ export interface Echo {
   character_id: string | null
   character: Character | null
   echo_name: string
-  echo_set: string | null
   echo_element: string | null
   echo_cost: number
-  main_stat_type: string
-  main_stat_value: number
+  main_stat_type: string | null
+  main_stat_value: number | null
   sub_stats: SubStat[]
   total_er: number | null
   score: number | null
   score_percent: number | null
   tier: string | null
-  image_path: string | null
-  notes: string | null
   created_at: string
 }
 
@@ -70,7 +67,6 @@ export interface ScoreResponse {
 export interface EchoCreate {
   character_id?: string
   echo_name: string
-  echo_set?: string
   echo_element?: string
   echo_cost: number
   main_stat_type?: string | null
@@ -80,7 +76,6 @@ export interface EchoCreate {
   score?: number
   score_percent?: number
   tier?: string
-  notes?: string
 }
 
 export interface EchoSetItem {

@@ -10,6 +10,7 @@ import SaveEchoDialog from '../components/SaveEchoDialog'
 import type { SaveEchoData } from '../components/SaveEchoDialog'
 import { getCharacters, getGameData, calculateScore, findOrCreateEcho } from '../services/api'
 import type { OcrResult, ScoreResponse, SubStat, Character } from '../types/echo'
+import { snapToRoll, defaultSubStatsForChar } from '../utils/echoHelpers'
 
 interface EchoInfo {
   echo_name: string
@@ -18,21 +19,6 @@ interface EchoInfo {
 
 const DEFAULT_ECHO_INFO: EchoInfo = { echo_name: '', echo_cost: 4 }
 
-function defaultSubStatsForChar(
-  charName: string,
-  charWeights: Record<string, Record<string, number>>,
-): SubStat[] {
-  const weights = charWeights[charName] ?? {}
-  return Object.entries(weights)
-    .filter(([, w]) => w > 0)
-    .sort(([, a], [, b]) => b - a)
-    .map(([type]) => ({ type, value: 0 }))
-}
-
-function snapToRoll(value: number, rolls: number[]): number {
-  if (!rolls.length) return value
-  return rolls.reduce((best, r) => Math.abs(r - value) < Math.abs(best - value) ? r : best)
-}
 
 export default function HomePage() {
   const qc = useQueryClient()
