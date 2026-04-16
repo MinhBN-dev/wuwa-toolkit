@@ -5,7 +5,7 @@ Source: https://github.com/AstyuteChick/Echo-Value-Calculator
 Algorithm:
   AV  = Σ (value/median × weight) for each substat + ER special contribution
   EP  = sum of top-5 weights from all 12 char weights + er_ep weight
-  ES  = (AV / EP) × 100   (capped at 100)
+  ES  = (AV / EP) × 100   (NOT capped — scores > 100 are valid in EVC)
 """
 import heapq
 from app.data.game_data import (
@@ -206,7 +206,7 @@ def calculate_score(
             "max_possible": 0.0,
         }
 
-    es = min((av / ep) * 100.0, 100.0)
+    es = (av / ep) * 100.0
     tier_label = _get_tier_label(es)
 
     return {
@@ -299,7 +299,7 @@ def _score_one_stateful(
             er_net_av, er_net_ep,
         )
 
-    es = min((av / ep) * 100.0, 100.0)
+    es = (av / ep) * 100.0
     tier_label = _get_tier_label(es)
     return (
         {
