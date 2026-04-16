@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Loader2, TrendingUp, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCharacters, getGameData, extractEchoStats, calculateScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
+import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
@@ -308,44 +308,48 @@ export default function SetPage() {
   }
 
   const handleCalculateAll = useCallback(async () => {
-    const cw = selectedChar && gameData ? (gameData.character_weights[selectedChar.name] ?? null) : null
     const totalERNum = parseFloat(totalER) || 100
-    const toScore = slots
-      .map((slot, idx) => ({ slot, idx }))
-      .filter(({ slot }) => slot.subStats.some(s => s.value > 0 && (!cw || cw[s.type] !== undefined)))
+    const hasData = slots.some(slot => slot.subStats.some(s => s.value > 0))
 
-    if (toScore.length === 0) {
+    if (!hasData) {
       toast.warning('Chưa có echo nào có dữ liệu')
       return
     }
 
     setCalcLoading(true)
     try {
-      const results = await Promise.all(
-        toScore.map(async ({ slot, idx }) => {
-          const activeStats = slot.subStats.filter(s =>
-            s.value > 0 && (!cw || cw[s.type] !== undefined)
-          )
-          const r = await calculateScore({
-            character_name: selectedChar?.name,
-            echo_cost: slot.echoCost,
-            sub_stats: activeStats,
-            total_er: totalERNum,
-          })
-          return { idx, r }
-        })
-      )
-      setSlots(prev => {
-        const next = [...prev]
-        for (const { idx, r } of results) next[idx] = { ...next[idx], scoreResult: r }
-        return next
+      // Use EVC full-mode set scoring — ER state shared sequentially across all 5 echoes
+      const r = await calculateSetScore({
+        character_name: selectedChar?.name,
+        echoes: slots.map(slot => ({
+          echo_name: slot.echoName || 'Echo',
+          sub_stats: slot.subStats.filter(s => s.value > 0),
+        })),
+        total_er: totalERNum,
       })
+
+      setSlots(prev => prev.map((slot, idx) => {
+        const result = r.echoes[idx]
+        if (!result || !slot.subStats.some(s => s.value > 0)) return slot
+        return {
+          ...slot,
+          scoreResult: {
+            score: result.score,
+            score_percent: result.score_percent,
+            tier: result.tier,
+            tier_label: result.tier_label ?? null,
+            breakdown: result.breakdown,
+            max_possible: result.max_possible,
+            character_name: r.character_name,
+          },
+        }
+      }))
     } catch {
       toast.error('Tính điểm thất bại')
     } finally {
       setCalcLoading(false)
     }
-  }, [selectedChar, gameData, totalER, slots])
+  }, [selectedChar, totalER, slots])
 
   // Derive set score from current slot results (used for saving)
   const scoredSlots = slots.filter(s => s.scoreResult && s.scoreResult.tier_label !== 'Not Applicable')
