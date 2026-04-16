@@ -33,7 +33,7 @@ async def save_echo_set(payload: EchoSetSaveRequest, db: AsyncSession = Depends(
         character_id=payload.character_id,
         character_name=character_name,
         total_er=payload.total_er,
-        slots=[s.model_dump() for s in payload.slots],
+        slots=[s.model_dump(mode="json") for s in payload.slots],
         set_score=payload.set_score,
         set_tier=payload.set_tier,
     )
