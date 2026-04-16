@@ -4,6 +4,7 @@ import type {
   OcrResult, ScoreRequest, ScoreResponse, GameData,
   SetScoreRequest, SetScoreResponse,
   EchoSetSaveRequest, SavedEchoSet,
+  CharacterProfile, CharacterProfileUpsert,
 } from '../types/echo'
 
 const api = axios.create({
@@ -69,3 +70,13 @@ export const getEchoSets = () =>
 
 export const deleteEchoSet = (id: string) =>
   api.delete(`/sets/${id}`)
+
+// Character Profiles (server-side build status + notes)
+export const getCharacterProfiles = () =>
+  api.get<Record<string, CharacterProfile>>('/character-profiles').then(r => r.data)
+
+export const upsertCharacterProfile = (characterName: string, data: CharacterProfileUpsert) =>
+  api.put<CharacterProfile>(`/character-profiles/${encodeURIComponent(characterName)}`, data).then(r => r.data)
+
+export const bulkUpsertCharacterProfiles = (profiles: Record<string, CharacterProfileUpsert>) =>
+  api.post<Record<string, CharacterProfile>>('/character-profiles/bulk', { profiles }).then(r => r.data)

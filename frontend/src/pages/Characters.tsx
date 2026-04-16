@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Pencil, X } from 'lucide-react'
-import { getCharacters } from '../services/api'
+import { getCharacters, getCharacterProfiles, upsertCharacterProfile, bulkUpsertCharacterProfiles } from '../services/api'
 import type { Character } from '../types/echo'
 import {
   getBaseName,
   getCharacterIcon,
   loadBuildStatuses,
-  saveBuildStatus,
+  loadNotes,
   BUILD_STATUS_META,
   BUILD_STATUS_CYCLE,
   type BuildStatus,
-  loadNotes,
-  saveNote,
 } from '../utils/character'
 
 const ELEMENT_COLORS: Record<string, string> = {
@@ -44,25 +42,69 @@ const FILTER_STATUSES: Array<{ value: BuildStatus | 'all'; label: string }> = [
 ]
 
 export default function CharactersPage() {
+  const queryClient = useQueryClient()
+  const syncedRef = useRef(false) // ensure one-time localStorage migration
+
   const { data: characters = [] } = useQuery({
     queryKey: ['characters'],
     queryFn: getCharacters,
   })
 
-  const [statuses, setStatuses] = useState<Record<string, BuildStatus>>(loadBuildStatuses)
-  const [notes, setNotes] = useState<Record<string, string>>(loadNotes)
-  const [editingNote, setEditingNote] = useState<string | null>(null) // baseName being edited
+  const { data: serverProfiles = {}, isSuccess: profilesLoaded } = useQuery({
+    queryKey: ['character-profiles'],
+    queryFn: getCharacterProfiles,
+  })
+
+  // Derive statuses + notes from server profiles (source of truth)
+  const statuses: Record<string, BuildStatus> = {}
+  const notes: Record<string, string> = {}
+  for (const [name, p] of Object.entries(serverProfiles)) {
+    statuses[name] = (p.build_status as BuildStatus) ?? 'not_built'
+    if (p.notes) notes[name] = p.notes
+  }
+
+  // ── One-time migration: push localStorage data to server if server is empty ──
+  useEffect(() => {
+    if (!profilesLoaded || syncedRef.current) return
+    syncedRef.current = true
+
+    const serverHasData = Object.keys(serverProfiles).length > 0
+    if (serverHasData) return // server already has data, nothing to migrate
+
+    const lsStatuses = loadBuildStatuses()
+    const lsNotes = loadNotes()
+
+    // Collect all character names from both sources
+    const allNames = new Set([...Object.keys(lsStatuses), ...Object.keys(lsNotes)])
+    if (allNames.size === 0) return
+
+    const bulk: Record<string, { build_status: string; notes?: string | null }> = {}
+    for (const name of allNames) {
+      const status = lsStatuses[name] ?? 'not_built'
+      const note = lsNotes[name] ?? null
+      if (status !== 'not_built' || note) {
+        bulk[name] = { build_status: status, notes: note }
+      }
+    }
+
+    if (Object.keys(bulk).length > 0) {
+      bulkUpsertCharacterProfiles(bulk).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['character-profiles'] })
+      })
+    }
+  }, [profilesLoaded, serverProfiles, queryClient])
+
+  const upsertMutation = useMutation({
+    mutationFn: ({ name, build_status, notes }: { name: string; build_status: string; notes?: string | null }) =>
+      upsertCharacterProfile(name, { build_status, notes }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['character-profiles'] }),
+  })
+
+  const [editingNote, setEditingNote] = useState<string | null>(null)
   const [draftNote, setDraftNote] = useState('')
   const [filterElement, setFilterElement] = useState('All')
   const [filterStatus, setFilterStatus] = useState<BuildStatus | 'all'>('all')
   const [search, setSearch] = useState('')
-
-  // Keep statuses in sync with localStorage when another tab changes it
-  useEffect(() => {
-    const handler = () => setStatuses(loadBuildStatuses())
-    window.addEventListener('storage', handler)
-    return () => window.removeEventListener('storage', handler)
-  }, [])
 
   const unique = deduplicateByBase(characters)
 
@@ -75,10 +117,9 @@ export default function CharactersPage() {
   })
 
   const cycleStatus = (baseName: string) => {
-    const current = statuses[baseName] ?? 'not_built'
+    const current = (statuses[baseName] ?? 'not_built') as BuildStatus
     const next = BUILD_STATUS_CYCLE[(BUILD_STATUS_CYCLE.indexOf(current) + 1) % BUILD_STATUS_CYCLE.length]
-    saveBuildStatus(baseName, next)
-    setStatuses(prev => ({ ...prev, [baseName]: next }))
+    upsertMutation.mutate({ name: baseName, build_status: next, notes: notes[baseName] ?? null })
   }
 
   const openNote = (e: React.MouseEvent, baseName: string) => {
@@ -88,12 +129,11 @@ export default function CharactersPage() {
   }
 
   const commitNote = (baseName: string) => {
-    saveNote(baseName, draftNote)
-    setNotes(prev => {
-      const next = { ...prev }
-      if (draftNote.trim()) next[baseName] = draftNote
-      else delete next[baseName]
-      return next
+    const trimmed = draftNote.trim()
+    upsertMutation.mutate({
+      name: baseName,
+      build_status: statuses[baseName] ?? 'not_built',
+      notes: trimmed || null,
     })
     setEditingNote(null)
   }
@@ -177,7 +217,7 @@ export default function CharactersPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
           {filtered.map(c => {
             const base = getBaseName(c.name)
-            const status = statuses[base] ?? 'not_built'
+            const status = (statuses[base] ?? 'not_built') as BuildStatus
             const meta = BUILD_STATUS_META[status]
             const elColor = ELEMENT_COLORS[c.element] ?? 'text-ww-muted border-ww-border'
             const note = notes[base] ?? ''
@@ -270,7 +310,7 @@ export default function CharactersPage() {
       )}
 
       <p className="text-xs text-ww-muted text-center">
-        Click icon or status badge to cycle build status · Click note area to add/edit memo · Saved in browser
+        Click icon or status badge to cycle build status · Click note area to add/edit memo · Synced to server
       </p>
     </div>
   )

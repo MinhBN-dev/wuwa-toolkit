@@ -13,7 +13,7 @@ backend/
     ├── config.py        Pydantic settings (reads .env)
     ├── database.py      SQLAlchemy async engine, Base, get_db, init_db
     ├── models/
-    │   └── echo.py      Echo, Character, EchoSet ORM models
+    │   └── echo.py      Echo, Character, EchoSet, CharacterProfile ORM models
     ├── schemas/
     │   └── echo.py      Pydantic schemas (request/response)
     ├── routers/
@@ -22,7 +22,8 @@ backend/
     │   ├── ocr.py       POST /ocr/extract (image → Gemini Vision)
     │   ├── scoring.py   POST /score/calculate, POST /score/calculate-set
     │   ├── sets.py      CRUD: /sets (saved echo sets)
-    │   └── evc_status.py GET /evc-status, POST /evc-status/acknowledge
+    │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
+    │   └── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
     ├── services/
     │   ├── ocr_service.py     Gemini Vision integration
     │   └── scoring_service.py Weighted scoring algorithm
@@ -44,6 +45,10 @@ backend/
 - total_er (float nullable) — total ER% của cả build
 - score, score_percent (float 0-100), tier (EVC label string e.g. "High Investment")
 - image_path (nullable, reserved), notes (nullable, reserved), created_at
+
+### CharacterProfile
+- id (UUID PK), character_name (unique, indexed), build_status ('not_built'|'building'|'built'), notes (text nullable), updated_at
+- Server-side storage for Characters page build status + notes (migrated from localStorage)
 
 ### EchoSet
 - id (UUID PK), name
@@ -70,6 +75,9 @@ backend/
 | DELETE | /api/v1/sets/{id} | Delete echo set |
 | GET | /api/v1/evc-status | Fetch EVC changelog, compare với acknowledged |
 | POST | /api/v1/evc-status/acknowledge | Mark version as seen |
+| GET | /api/v1/character-profiles | All character build statuses + notes |
+| PUT | /api/v1/character-profiles/{name} | Upsert single character profile |
+| POST | /api/v1/character-profiles/bulk | Bulk upsert (localStorage migration) |
 
 ## Echo Deduplication (find-or-create)
 
@@ -90,7 +98,7 @@ File: `routers/evc_status.py`
 
 ## Schemas (schemas/echo.py)
 
-Active schemas: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`
+Active schemas: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`
 
 **Removed:** `EchoUpdate` (endpoint bị xóa — không có update echo workflow)
 

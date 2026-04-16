@@ -37,7 +37,7 @@ frontend/
         ├── Home.tsx         Upload + edit + calculate + save echo lẻ
         ├── Set.tsx          Full set 5 slots: OCR, paste target, score all, save/load set
         ├── Saved.tsx        Gallery echoes + saved sets: filter by EVC tier, delete
-        └── Characters.tsx   Character grid: icon, element, build status (localStorage)
+        └── Characters.tsx   Character grid: icon, element, build status (server-synced)
 ```
 
 ## Routes
@@ -61,6 +61,8 @@ frontend/
 | `ScoreResponse` | score, score_percent, tier, tier_label, breakdown, max_possible |
 | `GameData` | echo_sets, sub_stat_types, character_weights, character_er, sub_stat_rolls |
 | `CharacterEr` | er_target, er_imp, er_imp_label |
+| `CharacterProfile` | character_name, build_status, notes |
+| `CharacterProfileUpsert` | build_status, notes? |
 
 ## API Calls (api.ts)
 
@@ -78,6 +80,9 @@ saveEchoSet(data)            POST /sets
 deleteEchoSet(id)            DELETE /sets/{id}
 getEvcStatus()               GET /evc-status
 acknowledgeEvcUpdate(date)   POST /evc-status/acknowledge
+getCharacterProfiles()       GET /character-profiles         — tất cả build status + notes
+upsertCharacterProfile(n,d)  PUT /character-profiles/{name}  — save 1 char
+bulkUpsertCharacterProfiles  POST /character-profiles/bulk   — one-time localStorage migration
 ```
 **Đã xóa:** `createEcho`, `updateEcho`, `getEcho` — không có component nào gọi
 
