@@ -512,8 +512,10 @@ export default function SetPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
       {/* Top bar */}
-      <div className="card flex flex-wrap gap-4 items-end">
-        <div className="flex-1 min-w-48">
+      <div className="card flex flex-wrap gap-x-4 gap-y-3 items-center">
+
+        {/* ── Resonator ───────────────────────────────── */}
+        <div className="flex-1 min-w-52">
           <label className="text-xs text-ww-muted block mb-1">Resonator</label>
           <select
             className="select w-full"
@@ -526,13 +528,15 @@ export default function SetPage() {
             ))}
           </select>
         </div>
-        <div className="space-y-2">
-          <div className="w-40">
-            <label className="text-xs text-ww-muted block mb-1">Total ER% of build</label>
+
+        {/* ── ER input + badge (inline) ────────────────── */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div>
+            <label className="text-xs text-ww-muted block mb-1">Total ER%</label>
             <input
               type="text"
               inputMode="decimal"
-              className="input w-full"
+              className="input w-24"
               value={totalER}
               onChange={e => setTotalER(e.target.value)}
               placeholder="100"
@@ -542,8 +546,12 @@ export default function SetPage() {
             <ErInfo er={gameData.character_er[selectedChar.name]} totalER={totalER} />
           )}
         </div>
-        <div className="flex items-end gap-2 flex-wrap self-end">
-          {/* Load saved sets */}
+
+        {/* ── Divider ──────────────────────────────────── */}
+        <div className="hidden sm:block h-8 w-px bg-ww-border/60 shrink-0" />
+
+        {/* ── Actions ──────────────────────────────────── */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowLoadPanel(v => !v)}
             className="btn-secondary flex items-center gap-2"
@@ -563,7 +571,6 @@ export default function SetPage() {
                 {calcLoading ? 'Đang tính...' : 'Tính Score'}
               </button>
 
-              {/* Save */}
               {showSaveInput ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -595,13 +602,17 @@ export default function SetPage() {
                   Lưu Set
                 </button>
               )}
-
-              <p className="text-xs text-ww-muted self-center">
-                Paste (Ctrl+V) → ô tiếp theo
-              </p>
             </>
           )}
         </div>
+
+        {/* ── Paste hint — full-width bottom row ───────── */}
+        {selectedChar && (
+          <p className="w-full text-xs text-ww-muted/50 text-right -mt-1">
+            <kbd className="bg-ww-border/60 text-ww-muted rounded px-1 py-0.5 font-mono text-[10px]">Ctrl+V</kbd>
+            {' '}paste → slot tiếp theo
+          </p>
+        )}
       </div>
 
       {/* Load panel */}
