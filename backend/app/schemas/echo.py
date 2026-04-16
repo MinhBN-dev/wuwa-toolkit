@@ -126,6 +126,26 @@ class SetScoreResponse(BaseModel):
     character_name: str | None
 
 
+# ── Character profiles ─────────────────────────────────────────────────────────
+
+class CharacterProfileUpsert(BaseModel):
+    build_status: str = "not_built"   # not_built | building | built
+    notes: str | None = None
+
+
+class CharacterProfileResponse(BaseModel):
+    character_name: str
+    build_status: str
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class BulkProfileUpsert(BaseModel):
+    """Bulk upsert — used for one-time localStorage migration."""
+    profiles: dict[str, CharacterProfileUpsert]
+
+
 # ── Saved echo sets ────────────────────────────────────────────────────────────
 
 class EchoSetSlot(BaseModel):

@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import init_db
 from app.models.echo import Character
 from app.data.game_data import CHARACTER_LIST
-from app.routers import echoes, characters, ocr, scoring, sets, evc_status
+from app.routers import echoes, characters, ocr, scoring, sets, evc_status, character_profiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import AsyncSessionLocal
@@ -61,6 +61,7 @@ app.include_router(ocr.router, prefix="/api/v1")
 app.include_router(scoring.router, prefix="/api/v1")
 app.include_router(sets.router, prefix="/api/v1")
 app.include_router(evc_status.router, prefix="/api/v1")
+app.include_router(character_profiles.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")
