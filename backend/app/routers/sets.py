@@ -33,7 +33,7 @@ async def save_echo_set(payload: EchoSetSaveRequest, db: AsyncSession = Depends(
         character_id=payload.character_id,
         character_name=character_name,
         total_er=payload.total_er,
-        slots=[s.model_dump() for s in payload.slots],
+        slots=[s.model_dump(mode="json") for s in payload.slots],
         set_score=payload.set_score,
         set_tier=payload.set_tier,
     )
@@ -63,6 +63,7 @@ def _to_response(s: EchoSet) -> EchoSetResponse:
     from app.schemas.echo import EchoSetSlot, SubStat
     slots = [
         EchoSetSlot(
+            echo_id=slot.get("echo_id"),
             echo_name=slot.get("echo_name", ""),
             echo_cost=slot.get("echo_cost", 4),
             sub_stats=[SubStat(**ss) for ss in slot.get("sub_stats", [])],

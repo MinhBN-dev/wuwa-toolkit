@@ -67,5 +67,5 @@ class EchoSet(Base):
     # JSON list of slot objects: [{echo_name, echo_cost, sub_stats, score, score_percent, tier}]
     slots: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     set_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    set_tier: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    set_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
