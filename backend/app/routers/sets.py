@@ -63,6 +63,7 @@ def _to_response(s: EchoSet) -> EchoSetResponse:
     from app.schemas.echo import EchoSetSlot, SubStat
     slots = [
         EchoSetSlot(
+            echo_id=slot.get("echo_id"),
             echo_name=slot.get("echo_name", ""),
             echo_cost=slot.get("echo_cost", 4),
             sub_stats=[SubStat(**ss) for ss in slot.get("sub_stats", [])],

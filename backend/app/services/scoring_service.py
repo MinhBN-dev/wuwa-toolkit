@@ -96,19 +96,6 @@ def _ep_er(er_net_ep: float, er_med: float, er_imp: float) -> float:
 
 # ─── Tier ────────────────────────────────────────────────────────────────────
 
-def _get_tier(es: float) -> str:
-    """Map ES (0-100) to a single letter tier S/A/B/C/D."""
-    if es >= 88:
-        return "S"
-    if es >= 66:
-        return "A"
-    if es >= 50:
-        return "B"
-    if es >= 35:
-        return "C"
-    return "D"
-
-
 def _get_tier_label(es: float) -> str:
     """Map ES to descriptive tier label (evc TIER_THRESHOLDS)."""
     for threshold, label in TIER_THRESHOLDS:
@@ -152,7 +139,7 @@ def calculate_score(
         return {
             "score": 0.0,
             "score_percent": 0.0,
-            "tier": "D",
+            "tier": "Not Applicable",
             "tier_label": "Not Applicable",
             "breakdown": {},
             "max_possible": 0.0,
@@ -213,20 +200,19 @@ def calculate_score(
         return {
             "score": 0.0,
             "score_percent": 0.0,
-            "tier": "D",
+            "tier": "Unbuilt",
             "tier_label": "Unbuilt",
             "breakdown": breakdown,
             "max_possible": 0.0,
         }
 
     es = min((av / ep) * 100.0, 100.0)
-    tier = _get_tier(es)
     tier_label = _get_tier_label(es)
 
     return {
         "score": round(av, 4),
         "score_percent": round(es, 2),
-        "tier": tier,
+        "tier": tier_label,
         "tier_label": tier_label,
         "breakdown": breakdown,
         "max_possible": round(ep, 4),
@@ -308,18 +294,19 @@ def _score_one_stateful(
 
     if ep <= 0:
         return (
-            {"score": 0.0, "score_percent": 0.0, "tier": "D",
+            {"score": 0.0, "score_percent": 0.0, "tier": "Unbuilt",
              "tier_label": "Unbuilt", "breakdown": {}, "max_possible": 0.0},
             er_net_av, er_net_ep,
         )
 
     es = min((av / ep) * 100.0, 100.0)
+    tier_label = _get_tier_label(es)
     return (
         {
             "score": round(av, 4),
             "score_percent": round(es, 3),
-            "tier": _get_tier(es),
-            "tier_label": _get_tier_label(es),
+            "tier": tier_label,
+            "tier_label": tier_label,
             "breakdown": breakdown,
             "max_possible": round(ep, 4),
         },

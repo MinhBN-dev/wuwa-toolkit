@@ -174,12 +174,7 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
         <div className="pt-1 border-t border-ww-border">
           <div className="w-full h-1.5 bg-ww-border rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${
-                slot.scoreResult.score_percent >= 88 ? 'bg-tier-S' :
-                slot.scoreResult.score_percent >= 66 ? 'bg-tier-A' :
-                slot.scoreResult.score_percent >= 50 ? 'bg-tier-B' :
-                slot.scoreResult.score_percent >= 35 ? 'bg-tier-C' : 'bg-tier-D'
-              }`}
+              className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(slot.scoreResult.score_percent))}`}
               style={{ width: `${slot.scoreResult.score_percent}%` }}
             />
           </div>
@@ -230,10 +225,7 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
           </div>
           <div className="w-full h-3 bg-ww-border rounded-full overflow-hidden mt-2">
             <div
-              className={`h-full rounded-full transition-all ${
-                setScore >= 75 ? 'bg-tier-S' : setScore >= 55 ? 'bg-tier-A' :
-                setScore >= 40 ? 'bg-tier-B' : setScore >= 25 ? 'bg-tier-C' : 'bg-tier-D'
-              }`}
+              className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(setScore))}`}
               style={{ width: `${setScore}%` }}
             />
           </div>
@@ -402,9 +394,7 @@ export default function SetPage() {
         total_er: totalERNum,
         slots: slotsData,
         set_score: currentSetScore,
-        set_tier: currentSetScore !== undefined
-          ? (currentSetScore >= 88 ? 'S' : currentSetScore >= 66 ? 'A' : currentSetScore >= 50 ? 'B' : currentSetScore >= 35 ? 'C' : 'D')
-          : undefined,
+        set_tier: currentSetScore !== undefined ? getTierLabel(currentSetScore) : undefined,
       })
       toast.success(`Đã lưu set "${saveName.trim()}"`)
       setSaveName('')
@@ -443,7 +433,7 @@ export default function SetPage() {
         scoreResult: s.score_percent != null ? {
           score: s.score ?? 0,
           score_percent: s.score_percent,
-          tier: s.tier ?? 'D',
+          tier: s.tier ?? 'Unbuilt',
           tier_label: s.tier_label ?? null,
           breakdown: {},
           max_possible: 0,
