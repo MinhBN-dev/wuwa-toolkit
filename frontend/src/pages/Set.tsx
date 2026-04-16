@@ -158,7 +158,7 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
           <div className="w-full h-1.5 bg-ww-border rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(slot.scoreResult.score_percent))}`}
-              style={{ width: `${slot.scoreResult.score_percent}%` }}
+              style={{ width: `${Math.min(slot.scoreResult.score_percent, 100)}%` }}
             />
           </div>
         </div>
@@ -209,7 +209,7 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
           <div className="w-full h-3 bg-ww-border rounded-full overflow-hidden mt-2">
             <div
               className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(setScore))}`}
-              style={{ width: `${setScore}%` }}
+              style={{ width: `${Math.min(setScore, 100)}%` }}
             />
           </div>
           <div className="flex justify-between text-xs text-ww-muted mt-1">
