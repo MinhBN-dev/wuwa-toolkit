@@ -21,23 +21,6 @@ class EchoCreate(BaseModel):
     score: float | None = None
     score_percent: float | None = None
     tier: str | None = None
-    notes: str | None = None
-
-
-class EchoUpdate(BaseModel):
-    character_id: uuid.UUID | None = None
-    echo_name: str | None = None
-    echo_set: str | None = None
-    echo_element: str | None = None
-    echo_cost: int | None = None
-    main_stat_type: str | None = None
-    main_stat_value: float | None = None
-    sub_stats: list[SubStat] | None = None
-    total_er: float | None = None
-    score: float | None = None
-    score_percent: float | None = None
-    tier: str | None = None
-    notes: str | None = None
 
 
 class CharacterResponse(BaseModel):

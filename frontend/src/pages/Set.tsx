@@ -6,24 +6,7 @@ import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOr
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function snapToRoll(value: number, rolls: number[]): number {
-  if (!rolls.length) return value
-  return rolls.reduce((best, r) => Math.abs(r - value) < Math.abs(best - value) ? r : best)
-}
-
-function defaultSubStatsForChar(
-  charName: string,
-  charWeights: Record<string, Record<string, number>>,
-): SubStat[] {
-  const weights = charWeights[charName] ?? {}
-  return Object.entries(weights)
-    .filter(([, w]) => w > 0)
-    .sort(([, a], [, b]) => b - a)
-    .map(([type]) => ({ type, value: 0 }))
-}
+import { snapToRoll, defaultSubStatsForChar } from '../utils/echoHelpers'
 
 
 // ── Slot state ────────────────────────────────────────────────────────────────
