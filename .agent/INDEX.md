@@ -34,9 +34,9 @@
 ### Khi cần thêm API endpoint
 → `.agent/BACKEND.md` phần API Routes để biết pattern
 → Thêm vào router tương ứng trong `backend/app/routers/`
-→ Đăng ký trong `backend/app/main.py`
+→ Đăng ký trong `backend/app/main.py` nếu là router mới
 → Thêm vào `frontend/src/services/api.ts`
-→ **CẬP NHẬT `.agent/BACKEND.md`**
+→ **CẬP NHẬT `.agent/BACKEND.md` + `.agent/FRONTEND.md` ngay cùng lúc**
 
 ### Khi cần sửa UI component
 → `.agent/FRONTEND.md` phần Components để tìm file đúng

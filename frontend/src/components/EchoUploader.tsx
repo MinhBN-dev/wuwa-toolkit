@@ -6,7 +6,7 @@ import { extractEchoStats } from '../services/api'
 import type { OcrResult } from '../types/echo'
 
 interface Props {
-  onExtracted: (result: OcrResult, imageFile: File) => void
+  onExtracted: (result: OcrResult) => void
   /** When set, upload/paste is blocked and this message is shown instead */
   blockedReason?: string
 }
@@ -27,7 +27,7 @@ export default function EchoUploader({ onExtracted, blockedReason }: Props) {
       try {
         const result = await extractEchoStats(file)
         toast.success('Đọc thành công!', { id: toastId })
-        onExtracted(result, file)
+        onExtracted(result)
       } catch (err: unknown) {
         const detail =
           (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail

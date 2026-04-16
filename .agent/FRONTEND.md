@@ -19,7 +19,8 @@ frontend/
     ├── services/
     │   └── api.ts       axios wrapper cho tất cả API calls
     ├── utils/
-    │   └── tier.ts      TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
+    │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
+    │   └── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
     ├── components/
     │   ├── EchoUploader.tsx   Drag-and-drop image upload → gọi OCR API
     │   ├── StatsEditor.tsx    Edit sub-stats với roll quality bars; prop `hideMeta` ẩn name/cost
@@ -30,6 +31,7 @@ frontend/
     │   └── EvcBanner.tsx      Banner vàng thông báo EVC update (localStorage + server ack)
     ├── utils/
     │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
+    │   ├── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
     │   └── character.ts     getBaseName, getCharacterSlug, getCharacterIcon, build status helpers
     └── pages/
         ├── Home.tsx         Upload + edit + calculate + save echo lẻ
@@ -50,8 +52,8 @@ frontend/
 |---|---|
 | `SubStat` | `{type, value}` |
 | `Character` | id, name, element, weapon_type, role |
-| `Echo` | Full echo record từ DB |
-| `EchoCreate` | Payload tạo/save echo (incl. `main_stat_type?`, `main_stat_value?`) |
+| `Echo` | Full echo record từ DB (không có `notes`, `image_path`, `echo_set` trong TS type) |
+| `EchoCreate` | Payload save echo: `echo_name`, `echo_cost`, `echo_element?`, `main_stat_type?`, `main_stat_value?`, `sub_stats`, scoring fields |
 | `OcrResult` | echo_name, echo_cost, **main_stat_type**, **main_stat_value**, sub_stats, ... |
 | `EchoSetSlot` | Slot trong saved set: `echo_id?`, echo_name, sub_stats, score, tier_label |
 | `EchoSetSaveRequest` | Payload save set |
@@ -66,19 +68,18 @@ frontend/
 getCharacters()              GET /characters
 getGameData()                GET /characters/game-data
 getEchoes(params?)           GET /echoes
-createEcho(data)             POST /echoes          — luôn tạo mới
-findOrCreateEcho(data)       POST /echoes/find-or-create  — dedup
-updateEcho(id, data)         PUT /echoes/{id}
+findOrCreateEcho(data)       POST /echoes/find-or-create  — dedup (dùng khi save)
 deleteEcho(id)               DELETE /echoes/{id}
 extractEchoStats(file)       POST /ocr/extract     — timeout 90s
 calculateScore(data)         POST /score/calculate
-calculateSetScore(data)      POST /score/calculate-set
+calculateSetScore(data)      POST /score/calculate-set  — EVC full mode, dùng cho Set page
 getEchoSets()                GET /sets
 saveEchoSet(data)            POST /sets
 deleteEchoSet(id)            DELETE /sets/{id}
 getEvcStatus()               GET /evc-status
 acknowledgeEvcUpdate(date)   POST /evc-status/acknowledge
 ```
+**Đã xóa:** `createEcho`, `updateEcho`, `getEcho` — không có component nào gọi
 
 ## Tier System (utils/tier.ts)
 
@@ -88,10 +89,11 @@ EVC labels thay thế S/A/B/C/D:
 ≥ 88 → Extreme         (màu tier-S)
 ≥ 77 → High Investment (màu tier-A)
 ≥ 66 → Well Built      (màu tier-B)
-≥ 55 → Decent          (màu tier-C)
-≥ 44 → Base Level      (màu tier-D)
+≥ 55 → Decent          (màu tier-B)
+≥ 44 → Base Level      (màu tier-C)
 <  44 → Unbuilt         (màu tier-D)
 ```
+`getBarColor(score)` dùng label mapping qua `TIER_BAR_COLOR` — nhất quán với `getTierClass()`
 
 ## EvcBanner (components/EvcBanner.tsx)
 
@@ -110,7 +112,7 @@ saveName: string
 ```
 
 - **Paste**: clipboard → slot tại `pasteTarget` → auto advance `(pasteTarget+1)%5`
-- **Score all**: `handleCalculateAll` → Promise.all 5 slots → cập nhật scoreResult
+- **Score all**: `handleCalculateAll` → `calculateSetScore` (1 call duy nhất, EVC full-mode) → cập nhật scoreResult từng slot
 - **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → `saveEchoSet` với slots có `echo_id`
 - **Load set**: fill slots từ saved data, set character + totalER
 

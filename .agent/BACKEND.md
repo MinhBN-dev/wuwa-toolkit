@@ -39,11 +39,11 @@ backend/
 - id (UUID PK)
 - character_id (FK nullable)
 - echo_name, echo_set, echo_element, echo_cost (1/3/4)
-- main_stat_type, main_stat_value (nullable — not used in scoring)
+- main_stat_type, main_stat_value (nullable — stored for display, not used in scoring)
 - sub_stats (JSON: [{type, value}, ...] max 5)
 - total_er (float nullable) — total ER% của cả build
-- score, score_percent (float 0-100), tier (str)
-- image_path, notes, created_at
+- score, score_percent (float 0-100), tier (EVC label string e.g. "High Investment")
+- image_path (nullable, reserved), notes (nullable, reserved), created_at
 
 ### EchoSet
 - id (UUID PK), name
@@ -60,10 +60,7 @@ backend/
 | GET | /api/v1/characters | List all characters |
 | GET | /api/v1/characters/game-data | Static game data + ER targets |
 | GET | /api/v1/echoes | List echoes (filter: character_id) |
-| GET | /api/v1/echoes/{id} | Get one echo |
-| POST | /api/v1/echoes | Create echo (always new) |
 | POST | /api/v1/echoes/find-or-create | Dedup: tìm trùng → trả cũ, tạo mới nếu chưa có |
-| PUT | /api/v1/echoes/{id} | Update echo |
 | DELETE | /api/v1/echoes/{id} | Delete echo |
 | POST | /api/v1/ocr/extract | Upload image → extract stats via Gemini |
 | POST | /api/v1/score/calculate | Calculate single echo score |
@@ -90,6 +87,15 @@ File: `routers/evc_status.py`
 - Parse regex: `<h3>DD.MM.YYYY</h3>\s*<ul>...</ul>`
 - Compare với `acknowledged_date` trong `evc_status.json`
 - `DATA_DIR` env var: thư mục chứa `evc_status.json` (default: backend root, Docker: /app/data)
+
+## Schemas (schemas/echo.py)
+
+Active schemas: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`
+
+**Removed:** `EchoUpdate` (endpoint bị xóa — không có update echo workflow)
+
+`EchoCreate` fields: `character_id?`, `echo_name`, `echo_element?`, `echo_cost`, `main_stat_type?`, `main_stat_value?`, `sub_stats`, `total_er?`, `score?`, `score_percent?`, `tier?`
+(không có `notes`, `echo_set` — không dùng trong FE)
 
 ## Services
 

@@ -29,11 +29,19 @@ export function getTierClass(label: string): string {
   return TIER_LABEL_COLORS[label] ?? TIER_LABEL_COLORS['Unbuilt']
 }
 
-/** Bar fill color based on score percent */
+// Bar fill color — must stay in sync with TIER_LABEL_COLORS keys
+const TIER_BAR_COLOR: Record<string, string> = {
+  'Godly':           'bg-tier-S',
+  'Extreme':         'bg-tier-S',
+  'High Investment': 'bg-tier-A',
+  'Well Built':      'bg-tier-B',
+  'Decent':          'bg-tier-B',
+  'Base Level':      'bg-tier-C',
+  'Unbuilt':         'bg-tier-D',
+  'Not Applicable':  'bg-ww-border',
+}
+
+/** Bar fill color derived from tier label (consistent with border/text colors) */
 export function getBarColor(score: number): string {
-  if (score >= 88) return 'bg-tier-S'
-  if (score >= 66) return 'bg-tier-A'
-  if (score >= 50) return 'bg-tier-B'
-  if (score >= 35) return 'bg-tier-C'
-  return 'bg-tier-D'
+  return TIER_BAR_COLOR[getTierLabel(score)] ?? 'bg-tier-D'
 }

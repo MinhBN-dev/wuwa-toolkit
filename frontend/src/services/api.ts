@@ -22,17 +22,8 @@ export const getGameData = () =>
 export const getEchoes = (params?: { character_id?: string; skip?: number; limit?: number }) =>
   api.get<EchoListResponse>('/echoes', { params }).then(r => r.data)
 
-export const getEcho = (id: string) =>
-  api.get<Echo>(`/echoes/${id}`).then(r => r.data)
-
-export const createEcho = (data: EchoCreate) =>
-  api.post<Echo>('/echoes', data).then(r => r.data)
-
 export const findOrCreateEcho = (data: EchoCreate) =>
   api.post<Echo>('/echoes/find-or-create', data).then(r => r.data)
-
-export const updateEcho = (id: string, data: Partial<EchoCreate>) =>
-  api.put<Echo>(`/echoes/${id}`, data).then(r => r.data)
 
 export const deleteEcho = (id: string) =>
   api.delete(`/echoes/${id}`)

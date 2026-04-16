@@ -1,4 +1,4 @@
 from app.schemas.echo import (
-    SubStat, EchoCreate, EchoUpdate, EchoResponse, EchoListResponse,
+    SubStat, EchoCreate, EchoResponse, EchoListResponse,
     CharacterResponse, OcrResult, ScoreRequest, ScoreResponse
 )
