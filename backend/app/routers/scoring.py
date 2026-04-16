@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models.echo import Character
 from app.schemas.echo import ScoreRequest, ScoreResponse, SetScoreRequest, SetScoreResponse, EchoSetResult
-from app.services.scoring_service import calculate_score, calculate_set_score, _get_tier, _get_tier_label
+from app.services.scoring_service import calculate_score, calculate_set_score, _get_tier_label
 
 router = APIRouter(prefix="/score", tags=["Scoring"])
 
@@ -70,8 +70,8 @@ async def calculate_echo_set_score(
 
     n = len(echo_results)
     set_score = round(sum(e.score_percent for e in echo_results) / n if n > 0 else 0.0, 3)
-    set_tier = _get_tier(set_score)
     set_tier_label = _get_tier_label(set_score)
+    set_tier = set_tier_label
     total_av = sum(e.score for e in echo_results)
     total_ep = sum(e.max_possible for e in echo_results)
 
