@@ -43,7 +43,7 @@ class Echo(Base):
     # Scoring
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     score_percent: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100
-    tier: Mapped[str | None] = mapped_column(String(2), nullable=True)  # S, A, B, C, D
+    tier: Mapped[str | None] = mapped_column(String(50), nullable=True)  # EVC label
 
     # Image
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
