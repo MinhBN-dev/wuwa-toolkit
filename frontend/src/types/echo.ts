@@ -142,6 +142,17 @@ export interface SavedEchoSet {
   created_at: string
 }
 
+export interface CharacterProfile {
+  character_name: string
+  build_status: string    // 'not_built' | 'building' | 'built'
+  notes: string | null
+}
+
+export interface CharacterProfileUpsert {
+  build_status: string
+  notes?: string | null
+}
+
 export interface CharacterEr {
   er_target: number
   er_imp: number

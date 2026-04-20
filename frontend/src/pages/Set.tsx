@@ -158,7 +158,7 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
           <div className="w-full h-1.5 bg-ww-border rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(slot.scoreResult.score_percent))}`}
-              style={{ width: `${slot.scoreResult.score_percent}%` }}
+              style={{ width: `${Math.min(slot.scoreResult.score_percent, 100)}%` }}
             />
           </div>
         </div>
@@ -209,7 +209,7 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
           <div className="w-full h-3 bg-ww-border rounded-full overflow-hidden mt-2">
             <div
               className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(setScore))}`}
-              style={{ width: `${setScore}%` }}
+              style={{ width: `${Math.min(setScore, 100)}%` }}
             />
           </div>
           <div className="flex justify-between text-xs text-ww-muted mt-1">
@@ -621,36 +621,56 @@ export default function SetPage() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm uppercase tracking-wider text-ww-accent flex items-center gap-2">
               <FolderOpen className="w-4 h-4" /> Sets đã lưu
+              <span className="text-ww-muted font-normal normal-case tracking-normal text-xs">
+                ({savedSets.length})
+              </span>
             </h3>
             <button onClick={() => setShowLoadPanel(false)} className="text-ww-muted hover:text-ww-text">
               <X className="w-4 h-4" />
             </button>
           </div>
+
           {savedSets.length === 0 ? (
             <p className="text-ww-muted text-sm text-center py-4">Chưa có set nào được lưu</p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
               {savedSets.map(s => (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-ww-bg hover:bg-ww-border/30 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-ww-text truncate">{s.name}</p>
-                    <p className="text-xs text-ww-muted">
-                      {s.character_name ?? 'Unknown'} · ER {s.total_er ?? '?'}%
-                      {s.set_score != null && ` · ${s.set_score.toFixed(3)} (${s.set_tier})`}
-                    </p>
+                <div
+                  key={s.id}
+                  className="flex flex-col gap-2 p-3 rounded-lg bg-ww-bg border border-ww-border/40 hover:border-ww-accent/30 transition-colors"
+                >
+                  {/* Name + delete */}
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-ww-text truncate leading-tight">{s.name}</p>
+                      <p className="text-[11px] text-ww-muted truncate mt-0.5">
+                        {s.character_name ?? 'Unknown'} · ER {s.total_er ?? '?'}%
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSet(s.id, s.name)}
+                      className="text-ww-muted/40 hover:text-red-400 transition-colors p-0.5 shrink-0 mt-0.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleLoadSet(s)}
-                    className="btn-primary text-xs px-3 py-1.5 shrink-0"
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSet(s.id, s.name)}
-                    className="text-ww-muted hover:text-red-400 transition-colors p-1 shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+
+                  {/* Score badge + Load button */}
+                  <div className="flex items-center justify-between gap-2 mt-auto">
+                    {s.set_score != null ? (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none ${getTierClass(getTierLabel(s.set_score))}`}>
+                        {s.set_tier} · {s.set_score.toFixed(1)}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-ww-muted/50">unscored</span>
+                    )}
+                    <button
+                      onClick={() => handleLoadSet(s)}
+                      className="btn-primary text-xs px-2.5 py-1 leading-none shrink-0"
+                    >
+                      Load
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

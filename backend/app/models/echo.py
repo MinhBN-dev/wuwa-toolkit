@@ -43,7 +43,7 @@ class Echo(Base):
     # Scoring
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     score_percent: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100
-    tier: Mapped[str | None] = mapped_column(String(2), nullable=True)  # S, A, B, C, D
+    tier: Mapped[str | None] = mapped_column(String(50), nullable=True)  # EVC label
 
     # Image
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -54,6 +54,17 @@ class Echo(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     character: Mapped["Character | None"] = relationship("Character", back_populates="echoes")
+
+
+class CharacterProfile(Base):
+    """Server-side storage for per-character build status and notes."""
+    __tablename__ = "character_profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    character_name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    build_status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_built")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class EchoSet(Base):

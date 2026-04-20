@@ -97,7 +97,7 @@ CHARACTER_DATA: dict[str, dict] = {
     "Augusta": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.75, 0.5*0.15, 0.0]),
         "er": [128.1, 0.9, 125.0], "anal": True,
-        "element": "Spectro", "weapon": "Broadblade", "role": "DPS",
+        "element": "Electro", "weapon": "Broadblade", "role": "DPS",
     },
     "Baizhi": {
         "rv": _make_rv([0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
@@ -112,7 +112,7 @@ CHARACTER_DATA: dict[str, dict] = {
     "Buling": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
         "er": [138.1, 1.0, 150.0], "anal": False,
-        "element": "Glacio", "weapon": "Gauntlets", "role": "SubDPS",
+        "element": "Electro", "weapon": "Gauntlets", "role": "SubDPS",
     },
     "Calcharo": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.25, 0.0, 0.0, 0.5*0.6]),
@@ -172,17 +172,17 @@ CHARACTER_DATA: dict[str, dict] = {
     "Galbrena": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.35, 0.0, 0.0]),
         "er": [128.1, 0.6, 125.0], "anal": True,
-        "element": "Electro", "weapon": "Broadblade", "role": "DPS",
+        "element": "Fusion", "weapon": "Broadblade", "role": "DPS",
     },
     "Iuno (Main DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
         "er": [113.1, 0.8, 125.0], "anal": True,
-        "element": "Electro", "weapon": "Sword", "role": "DPS",
+        "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Iuno (Sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
         "er": [133.1, 1.0, 125.0], "anal": True,
-        "element": "Electro", "weapon": "Sword", "role": "SubDPS",
+        "element": "Aero", "weapon": "Sword", "role": "SubDPS",
     },
     "Jianxin (DPS/sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.25, 0.5*0.4, 0.0, 0.5*0.3]),
@@ -207,17 +207,17 @@ CHARACTER_DATA: dict[str, dict] = {
     "Luuk Herssen": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.9, 0.0, 0.0, 0.0]),
         "er": [125.0, 0.3, 125.0], "anal": True,
-        "element": "Electro", "weapon": "Gauntlets", "role": "DPS",
+        "element": "Spectro", "weapon": "Gauntlets", "role": "DPS",
     },
     "Lumi": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.35, 0.0, 0.5*0.25, 0.5*0.3]),
         "er": [155.0, 1.0, 125.0], "anal": True,
-        "element": "Glacio", "weapon": "Gauntlets", "role": "SubDPS",
+        "element": "Electro", "weapon": "Gauntlets", "role": "SubDPS",
     },
     "Lupa": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.15, 0.5*0.7]),
         "er": [123.1, 1.0, 125.0], "anal": True,
-        "element": "Havoc", "weapon": "Sword", "role": "DPS",
+        "element": "Fusion", "weapon": "Sword", "role": "DPS",
     },
     "Lynae": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.6, 0.0, 0.0, 0.5*0.2]),
@@ -247,7 +247,7 @@ CHARACTER_DATA: dict[str, dict] = {
     "Phrolova": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.5, 0.0]),
         "er": [0.0, 0.0, 0], "anal": True,
-        "element": "Glacio", "weapon": "Pistols", "role": "DPS",
+        "element": "Havoc", "weapon": "Pistols", "role": "DPS",
     },
     "Qiuyuan": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.65, 0.0, 0.0]),
@@ -282,7 +282,7 @@ CHARACTER_DATA: dict[str, dict] = {
     "Sigrika": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
         "er": [120.0, 0.9, 100.0], "anal": True,
-        "element": "Fusion", "weapon": "Sword", "role": "DPS",
+        "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Taoqi (sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.5*0.5, 0.0, 0.0, 0.5*0.5]),
@@ -337,7 +337,7 @@ CHARACTER_DATA: dict[str, dict] = {
     "Zani": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.6, 0.0, 0.5*0.2]),
         "er": [123.1, 0.9, 125.0], "anal": True,
-        "element": "Havoc", "weapon": "Gauntlets", "role": "DPS",
+        "element": "Spectro", "weapon": "Gauntlets", "role": "DPS",
     },
     "Zhezhi": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.8, 0.0, 0.0, 0.0]),
