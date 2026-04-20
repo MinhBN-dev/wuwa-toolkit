@@ -56,7 +56,7 @@ PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer
 
 # Reset all tables (backend re-creates + re-seeds characters on next startup)
 PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer \
-  -c "DROP TABLE IF EXISTS echo_sets, echoes, characters CASCADE;"
+  -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
 ```
 
 ### Frontend type-check
@@ -87,11 +87,11 @@ Local dev: Vite proxies `/api` → `localhost:8001` directly (no nginx).
 | Path | Purpose |
 |------|---------|
 | `main.py` | FastAPI app, CORS, lifespan (creates tables, seeds characters if empty) |
-| `models/echo.py` | SQLAlchemy ORM: `Character`, `Echo`, `EchoSet` |
-| `schemas/echo.py` | Pydantic schemas — `EchoCreate`, `EchoResponse`, `ScoreRequest`, `SetScoreRequest`, `EchoSetSaveRequest`, etc. |
-| `routers/` | One file per domain: `echoes`, `characters`, `scoring`, `ocr`, `sets`, `evc_status` |
+| `models/echo.py` | SQLAlchemy ORM: `Character`, `Echo`, `EchoSet`, `CharacterProfile` |
+| `schemas/echo.py` | Pydantic schemas — `EchoCreate`, `EchoResponse`, `ScoreRequest`, `SetScoreRequest`, `EchoSetSaveRequest`, `CharacterProfileUpsert`, `BulkProfileUpsert`, etc. |
+| `routers/` | One file per domain: `echoes`, `characters`, `scoring`, `ocr`, `sets`, `evc_status`, `character_profiles` |
 | `services/scoring_service.py` | EVC algorithm — AV/EP/ES, stateful ER across sets, **no score cap** |
-| `services/ocr_service.py` | Gemini Vision fallback chain (EasyOCR → gemini-2.5-flash → OpenAI → Anthropic) |
+| `services/ocr_service.py` | EasyOCR (local, primary) → Gemini → OpenAI → Anthropic fallback chain |
 | `data/game_data.py` | `CHARACTER_DATA` (weights + ER targets), `SUBSTAT_MEDIANS`, `TIER_THRESHOLDS` |
 
 ### Frontend (`frontend/src/`)
@@ -101,10 +101,11 @@ Local dev: Vite proxies `/api` → `localhost:8001` directly (no nginx).
 | `pages/Home.tsx` | Single echo: upload → score → save |
 | `pages/Set.tsx` | 5-slot set: OCR per slot, paste target, score all (EVC full mode), save/load |
 | `pages/Saved.tsx` | Echo library: filter by tier/character/name, delete |
-| `pages/Characters.tsx` | Resonator roster + build status (localStorage) |
+| `pages/Characters.tsx` | Resonator roster + build status (server-synced via `/character-profiles`) |
 | `services/api.ts` | All API calls (axios) — single source of truth |
 | `utils/tier.ts` | `TIER_THRESHOLDS`, `getTierLabel`, `getTierClass`, `getBarColor` — frontend tier source of truth |
 | `utils/echoHelpers.ts` | `snapToRoll`, `defaultSubStatsForChar` — shared between Home and Set |
+| `utils/character.ts` | `getBaseName`, `getCharacterIcon`, build status helpers, localStorage read functions |
 | `types/echo.ts` | All TypeScript interfaces |
 
 ### Docker containers
@@ -164,6 +165,8 @@ Processing order: echoes **with ER substat first**, then the rest. ER budget ini
 
 **Adding a new character** — edit `backend/app/data/game_data.py`: add to `CHARACTER_WEIGHTS`, `CHARACTER_LIST`, and `CHARACTER_ER`. DB re-seeds automatically on next backend restart (if characters table is empty, otherwise run a manual insert or reset).
 
-**OCR provider** — primary is EasyOCR (local, no API key). Falls back to Gemini `gemini-2.5-flash` (do NOT use `gemini-2.0-flash` — rate limit = 0 on new projects). Key in `backend/.env`: `GOOGLE_API_KEY`.
+**OCR provider** — primary is EasyOCR (local, no API key, ~140 MB models pre-downloaded in Docker image). Falls back in order: Gemini `gemini-2.5-flash` → OpenAI → Anthropic. Do NOT use `gemini-2.0-flash` — rate limit = 0 on new projects. Key in `backend/.env`: `GOOGLE_API_KEY`.
+
+**Character build status** — stored server-side in `character_profiles` table (not localStorage). `Characters.tsx` auto-migrates from localStorage on first load when server has no data. All subsequent reads/writes go to `GET/PUT /api/v1/character-profiles`.
 
 **EVC banner** — `GET /evc-status` is fetched once per session (`staleTime: Infinity`). Acknowledge writes to both `evc_status.json` (server volume) and `localStorage` (client).

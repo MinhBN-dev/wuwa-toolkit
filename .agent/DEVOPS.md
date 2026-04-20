@@ -112,8 +112,9 @@ PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer
 ### Reset tables (nếu schema thay đổi)
 ```bash
 PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer \
-  -c "DROP TABLE IF EXISTS echo_sets, echoes, characters CASCADE;"
+  -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
 # Restart backend → tự tạo lại + seed characters
+# Lưu ý: xóa character_profiles sẽ mất build status của tất cả nhân vật
 ```
 
 ---

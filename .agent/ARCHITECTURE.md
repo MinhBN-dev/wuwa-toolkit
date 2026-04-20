@@ -2,10 +2,11 @@
 
 ## Mục đích
 Web app hỗ trợ quản lý và đánh giá echo trong Wuthering Waves.
-- Upload ảnh echo → Google Gemini Vision AI đọc stats tự động
-- Tính điểm echo theo character và build context (công thức EVC)
+- Upload ảnh echo → EasyOCR (local) hoặc Google Gemini Vision đọc stats tự động
+- Tính điểm echo theo character và build context (công thức EVC 3.2)
 - Lưu bộ echo (full set 5 slots) cho từng nhân vật để xem lại
 - Theo dõi EVC changelog và thông báo khi có update mới
+- Theo dõi build status từng nhân vật (Built/Building/Not Built), lưu server-side
 
 ## Tech Stack
 
@@ -14,7 +15,7 @@ Web app hỗ trợ quản lý và đánh giá echo trong Wuthering Waves.
 | Backend | FastAPI (Python 3.12), SQLAlchemy async, asyncpg |
 | Frontend | React 18 + TypeScript, Vite, TailwindCSS |
 | Database | PostgreSQL 16 (Docker container: shared-postgres) |
-| OCR | Google Gemini Vision API (gemini-2.5-flash) |
+| OCR | EasyOCR (local primary) → Gemini gemini-2.5-flash → OpenAI → Anthropic |
 | Scoring | Custom algorithm based on EVC (echovaluecalc.com) |
 | State | TanStack Query (server state), local useState |
 | Notifications | Sonner (toast) |
@@ -45,7 +46,7 @@ Hostname `echoes.local` broadcast qua Avahi mDNS — mọi máy trong LAN tự r
 User uploads echo screenshot
     → POST /api/v1/ocr/extract
     → Backend saves image to uploads/
-    → Google Gemini Vision reads stats
+    → EasyOCR (local) reads stats; falls back to Gemini → OpenAI → Anthropic
     → Returns: echo_name, echo_set, main_stat, sub_stats[]
 
 User chọn character + nhập total ER
@@ -71,29 +72,34 @@ App khởi động
     → User bấm X → POST /evc-status/acknowledge
     → Lưu vào evc_status.json (server) + localStorage (client)
     → Tất cả browser không hiện lại
+
+Characters page khởi động
+    → GET /api/v1/character-profiles (source of truth — synced across browsers)
+    → Nếu server trống + localStorage có data → POST /character-profiles/bulk (one-time migration)
+    → User click icon/badge → PUT /api/v1/character-profiles/{name} (upsert)
 ```
 
 ## Scoring Algorithm (EVC formula)
 
 ```
-For each sub-stat:
-    roll_quality = actual_value / max_value  (0–1)
-    contribution = roll_quality × character_weight × 100
+Single echo (stateless):
+    AV = Σ (value / substat_median) × character_weight   for each substat
+    EP = sum of top-5 character weights (+ er_ep_weight if ER needed)
+    ES = (AV / EP) × 100    ← NOT capped, can exceed 100
 
-raw_score     = Σ contributions
-max_possible  = Σ (top 5 character weights) × 100
-score_percent = (raw_score / max_possible) × 100
-
-Set score = arithmetic mean(score_percent[i])  — NOT weighted average
+Full-set (stateful ER — always use for Set page):
+    Echoes with ER substat scored first; er_net_av / er_net_ep carried forward
+    set_score = (Σ AV across all 5 echoes / Σ EP across all 5 echoes) × 100
+    NOT a simple arithmetic mean of individual scores
 
 Tier labels (EVC):
-    Godly           ≥ 99%
-    Extreme         ≥ 88%
-    High Investment ≥ 77%
-    Well Built      ≥ 66%
-    Decent          ≥ 55%
-    Base Level      ≥ 44%
-    Unbuilt         < 44%
+    Godly           ≥ 99
+    Extreme         ≥ 88
+    High Investment ≥ 77
+    Well Built      ≥ 66
+    Decent          ≥ 55
+    Base Level      ≥ 44
+    Unbuilt         < 44
 ```
 
 ## Echo Deduplication

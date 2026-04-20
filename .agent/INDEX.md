@@ -29,7 +29,7 @@
 
 ### Khi cần sửa tier labels
 → `frontend/src/utils/tier.ts` → `TIER_THRESHOLDS`
-→ Backend: `backend/app/services/scoring_service.py` → `TIER_LABELS`
+→ Backend: `backend/app/services/scoring_service.py` → `_get_tier_label()` + `backend/app/data/game_data.py` → `TIER_THRESHOLDS`
 
 ### Khi cần thêm API endpoint
 → `.agent/BACKEND.md` phần API Routes để biết pattern
@@ -59,3 +59,8 @@
 → `.agent/ARCHITECTURE.md` phần Data Flow (EVC)
 → Backend: `backend/app/routers/evc_status.py`
 → Frontend: `frontend/src/components/EvcBanner.tsx`
+
+### Khi cần sửa character build status / notes
+→ Backend: `backend/app/routers/character_profiles.py` + model `CharacterProfile` trong `models/echo.py`
+→ Frontend: `frontend/src/pages/Characters.tsx` + `frontend/src/utils/character.ts`
+→ API: `GET/PUT /api/v1/character-profiles`, `POST /api/v1/character-profiles/bulk`
