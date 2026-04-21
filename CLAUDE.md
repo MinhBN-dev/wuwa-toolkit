@@ -46,7 +46,9 @@ docker compose logs -f backend
 docker compose logs -f frontend
 ```
 
-Production URL: `http://echoes.local` (port 80) — Avahi mDNS broadcast, resolves on all LAN machines. Also `http://localhost` or `http://your-server-ip`.
+Production URL: `http://echoes.local` (port 80) — Avahi mDNS broadcast, resolves on all LAN machines. Also `http://your-server-ip`.
+
+**`docker-compose.override.yml`** — file này KHÔNG commit vào git (đã có trong `.gitignore`). Dùng để override config cho máy dev cụ thể (shared postgres, nginx-proxy network). Public users không cần file này.
 
 ### Database
 

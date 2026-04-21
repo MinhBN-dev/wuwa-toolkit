@@ -52,6 +52,33 @@ npm run dev   # port 5174
 - `uploads`: ảnh echo upload
 - `evc_state`: file `evc_status.json`
 
+### docker-compose.override.yml (machine-specific, NOT committed)
+
+Dùng để override config cho từng máy mà không sửa `docker-compose.yml` public.
+Ví dụ trên máy dev này:
+```yaml
+services:
+  postgres:
+    profiles: ["disabled"]   # dùng shared-postgres thay vì standalone
+  backend:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://...@shared-postgres:5432/echoes_optimizer
+    networks:
+      - internal
+      - easm_toolkit_default
+  frontend:
+    ports: !reset []          # bỏ port mapping, để nginx-proxy handle
+    networks:
+      - internal
+      - nginx_proxy_default
+networks:
+  easm_toolkit_default:
+    external: true
+  nginx_proxy_default:
+    external: true
+```
+File này đã được thêm vào `.gitignore`.
+
 ### Khởi động / Dừng
 ```bash
 cd /home/ubuntu-dev/Projects/Echoes_Optimizer

@@ -8,6 +8,9 @@ dist/
 *.egg
 .eggs/
 
+# Machine-specific Docker overrides
+docker-compose.override.yml
+
 # Environment — never commit real credentials
 .env
 .env.local
