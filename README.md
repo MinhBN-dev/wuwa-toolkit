@@ -4,20 +4,12 @@ A web application for scoring, managing, and analyzing Echoes in **Wuthering Wav
 
 ## Features
 
-- **Screenshot OCR** — upload or paste an Echo screenshot; Google Gemini Vision automatically extracts name, main stat, and sub-stats
+- **Screenshot OCR** — upload or paste an Echo screenshot; stats are extracted automatically (EasyOCR runs locally, no API key required)
 - **Echo scoring** — weighted score per character using the EVC 3.2 formula, with tier labels (Godly → Unbuilt)
 - **Full-set scoring** — score all 5 Echo slots together in a single EVC full-mode call (shared Energy Regen budget across the set)
 - **Echo library** — save, filter by tier/character/name, and delete Echoes
 - **Set management** — save named sets per resonator, load them back, view aggregate set score
-- **EVC changelog banner** — detects new EVC updates and notifies you in-app
-
----
-
-## Screenshots
-
-> _Set page — score 5 echo slots and save as a named set_
-
-> _Saved Echoes — filter by EVC tier label, character, or echo name_
+- **Character tracker** — track build status (Built / Building / Not Built) and notes per resonator, synced across browsers
 
 ---
 
@@ -28,12 +20,9 @@ A web application for scoring, managing, and analyzing Echoes in **Wuthering Wav
 | Backend | Python 3.12 · FastAPI · SQLAlchemy (async) · asyncpg |
 | Frontend | React 18 · TypeScript · Vite · TailwindCSS v3 |
 | Database | PostgreSQL 16 |
-| OCR | Google Gemini Vision API (`gemini-2.5-flash`) |
-| Scoring | EVC 3.2 formula (see [References](#references)) |
-| State | TanStack Query v5 · React useState |
-| Notifications | Sonner |
-| Routing | React Router v6 |
-| Deployment | Docker Compose — nginx (frontend) + uvicorn (backend) |
+| OCR | EasyOCR (local, primary) · Google Gemini · OpenAI · Anthropic (fallbacks) |
+| Scoring | EVC 3.2 formula |
+| Deployment | Docker Compose |
 
 ---
 
@@ -41,8 +30,9 @@ A web application for scoring, managing, and analyzing Echoes in **Wuthering Wav
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- A **Google AI API key** ([Get one free](https://aistudio.google.com/app/apikey)) for OCR
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+
+That's it. No Python, Node, or database installation needed.
 
 ### 1. Clone the repository
 
@@ -54,113 +44,99 @@ cd echoes-optimizer
 ### 2. Configure environment
 
 ```bash
-cp backend/.env.example backend/.env
+cp .env.example .env
 ```
 
-Edit `backend/.env`:
+Edit `.env` and set **at minimum**:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@shared-postgres:5432/echoes_optimizer
-GOOGLE_API_KEY=your_google_api_key_here
+POSTGRES_PASSWORD=choose_a_password
 ```
 
-### 3. Start with Docker Compose
+Everything else is optional:
+- `GOOGLE_API_KEY` — enables cloud OCR fallback (get one free at [aistudio.google.com](https://aistudio.google.com/app/apikey))
+- `PORT` — defaults to `80`
+- `ALLOWED_ORIGINS` — add your LAN IP if you want to access from other devices (e.g. `http://localhost,http://192.168.1.100`)
+
+### 3. Start
 
 ```bash
 docker compose up -d
 ```
 
-The app will be available at **http://localhost** (port 80).
+The app will be available at **http://localhost** (or `http://localhost:PORT` if you changed `PORT`).
 
-> On a local network, the hostname `echoes.local` is broadcast via mDNS (Avahi) — any device on the LAN can reach it automatically.
+First startup takes a few minutes to build images. Subsequent starts are instant.
 
-### 4. (Optional) Local development
+### 4. Stop
 
-**Backend:**
+```bash
+docker compose down          # stop (data is preserved in Docker volumes)
+docker compose down -v       # stop and delete all data
+```
+
+---
+
+## OCR Setup
+
+Echo screenshots are processed by **EasyOCR** running locally inside Docker — no API key required and no data leaves your machine.
+
+Cloud providers are used as fallback if EasyOCR confidence is low:
+
+| Priority | Provider | Key var |
+|----------|----------|---------|
+| 1 | EasyOCR (local) | — |
+| 2 | Google Gemini | `GOOGLE_API_KEY` |
+| 3 | OpenAI | `OPENAI_API_KEY` |
+| 4 | Anthropic | `ANTHROPIC_API_KEY` |
+
+Add your preferred API key(s) to `.env` to enable fallbacks.
+
+---
+
+## Local Development (without Docker)
+
+<details>
+<summary>Expand</summary>
+
+You'll need Python 3.12 and Node.js 20+, plus a running PostgreSQL instance.
+
+**Backend**
+
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
+
+cp .env.example .env   # edit DATABASE_URL and other vars
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-**Frontend:**
+**Frontend**
+
 ```bash
 cd frontend
 npm install
 npm run dev   # http://localhost:5174
 ```
 
----
+Swagger UI: http://localhost:8001/docs
 
-## Project Structure
-
-```
-echoes-optimizer/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app, lifespan, seeding
-│   │   ├── models/echo.py       # SQLAlchemy ORM models
-│   │   ├── schemas/echo.py      # Pydantic request/response schemas
-│   │   ├── routers/
-│   │   │   ├── echoes.py        # GET /echoes, POST /find-or-create, DELETE
-│   │   │   ├── characters.py    # GET /characters, GET /game-data
-│   │   │   ├── scoring.py       # POST /score/calculate, /calculate-set
-│   │   │   ├── ocr.py           # POST /ocr/extract
-│   │   │   ├── sets.py          # CRUD /sets
-│   │   │   └── evc_status.py    # GET /evc-status, POST /acknowledge
-│   │   ├── services/
-│   │   │   ├── scoring_service.py  # EVC scoring algorithm
-│   │   │   └── ocr_service.py      # Gemini Vision integration
-│   │   └── data/game_data.py    # Character weights, ER targets, stat maxima
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Home.tsx         # Single echo: upload → score → save
-│   │   │   ├── Set.tsx          # 5-slot set: OCR, score all, save/load
-│   │   │   ├── Saved.tsx        # Echo library with filters
-│   │   │   └── Characters.tsx   # Resonator roster + build status
-│   │   ├── components/
-│   │   │   ├── EchoCard.tsx     # Echo grid card with tier indicator
-│   │   │   ├── EchoUploader.tsx # Drag-and-drop / paste image uploader
-│   │   │   ├── StatsEditor.tsx  # Sub-stat editor with roll quality bars
-│   │   │   ├── ScoreDisplay.tsx # Score result with tier badge + breakdown
-│   │   │   ├── ErInfo.tsx       # ER target + importance badge
-│   │   │   ├── SaveEchoDialog.tsx # Confirm dialog before saving
-│   │   │   └── EvcBanner.tsx    # EVC changelog update banner
-│   │   ├── services/api.ts      # Axios API client
-│   │   ├── utils/
-│   │   │   ├── tier.ts          # Tier labels, colors, thresholds
-│   │   │   └── echoHelpers.ts   # snapToRoll, defaultSubStatsForChar
-│   │   └── types/echo.ts        # TypeScript interfaces
-│   ├── nginx.conf
-│   └── Dockerfile
-├── docs/
-│   └── db_schema.md             # Full ERD + table documentation
-├── docker-compose.yml
-└── README.md
-```
+</details>
 
 ---
 
 ## Scoring Algorithm
 
-The scoring algorithm is a direct implementation of the **EVC 3.2** formula:
+The scoring algorithm implements the **EVC 3.2** formula:
 
 ```
-For each sub-stat:
-    roll_quality  = actual_value / max_5roll_value      (0 – 1)
-    contribution  = roll_quality × character_weight × 100
-
-raw_score     = Σ contributions  (all sub-stats across the echo)
-max_possible  = Σ top-5 character weights × 100
-score_percent = (raw_score / max_possible) × 100
+AV = Σ (value / substat_median) × character_weight   for each sub-stat
+EP = sum of top-5 character weights (+ ER weight if Energy Regen is needed)
+ES = (AV / EP) × 100    ← not capped, values > 100 are valid
 ```
 
-**Full-set mode** (5 echoes together):  
-Echoes with an Energy Regen sub-stat are processed first. The remaining ER budget is carried forward sequentially — this matches EVC's stateful ER accounting and is why all 5 echoes must be scored in a single API call.
+**Full-set mode** scores 5 echoes together with a shared ER budget — results differ from scoring each echo independently.
 
 ### Tier Labels
 
@@ -176,25 +152,48 @@ Echoes with an Energy Regen sub-stat are processed first. The remaining ER budge
 
 ---
 
+## Project Structure
+
+```
+echoes-optimizer/
+├── .env.example             ← copy to .env and fill in
+├── docker-compose.yml
+├── backend/
+│   ├── .env.example         ← copy to backend/.env for local dev
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── models/          SQLAlchemy ORM models
+│   │   ├── routers/         API route handlers
+│   │   ├── services/        scoring_service.py, ocr_service.py
+│   │   └── data/game_data.py  character weights & ER targets
+│   └── requirements.txt
+└── frontend/
+    └── src/
+        ├── pages/           Home, Set, Saved, Characters
+        ├── components/      EchoCard, StatsEditor, ScoreDisplay, …
+        ├── services/api.ts  all API calls
+        └── utils/           tier.ts, echoHelpers.ts, character.ts
+```
+
+---
+
 ## API Overview
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/v1/characters` | All resonators |
 | GET | `/api/v1/characters/game-data` | Weights, ER targets, stat rolls |
-| GET | `/api/v1/echoes` | List saved echoes (filter by character) |
-| POST | `/api/v1/echoes/find-or-create` | Save echo with deduplication |
+| GET | `/api/v1/echoes` | List saved echoes |
+| POST | `/api/v1/echoes/find-or-create` | Save echo (with deduplication) |
 | DELETE | `/api/v1/echoes/{id}` | Delete echo |
 | POST | `/api/v1/ocr/extract` | Upload image → extract stats |
 | POST | `/api/v1/score/calculate` | Score a single echo |
-| POST | `/api/v1/score/calculate-set` | Score a full 5-echo set (EVC full mode) |
+| POST | `/api/v1/score/calculate-set` | Score a full 5-echo set |
 | GET | `/api/v1/sets` | List saved sets |
 | POST | `/api/v1/sets` | Save an echo set |
 | DELETE | `/api/v1/sets/{id}` | Delete a set |
-| GET | `/api/v1/evc-status` | Check for EVC changelog updates |
-| POST | `/api/v1/evc-status/acknowledge` | Mark update as seen |
-
-Full schema documentation: [`docs/db_schema.md`](docs/db_schema.md)
+| GET | `/api/v1/character-profiles` | Character build status + notes |
+| PUT | `/api/v1/character-profiles/{name}` | Update build status/notes |
 
 ---
 
@@ -202,14 +201,10 @@ Full schema documentation: [`docs/db_schema.md`](docs/db_schema.md)
 
 | Source | Usage |
 |--------|-------|
-| [Echo Value Calculator (EVC)](https://www.echovaluecalc.com/) by **Rei** | Scoring formula, character weights, tier thresholds, ER importance values — all derived from EVC 3.2 |
-| [EVC Changelog](https://www.echovaluecalc.com/logs) | In-app update banner checks this page for new versions |
+| [Echo Value Calculator (EVC)](https://www.echovaluecalc.com/) by **Rei** | Scoring formula, character weights, tier thresholds — all derived from EVC 3.2 |
 | [Wuthering Waves](https://wutheringwaves.kurogames.com/) by **Kuro Games** | Game, Echo system, character data |
-| [Google Gemini Vision API](https://ai.google.dev/) | OCR provider for screenshot-to-stats extraction |
-| [TanStack Query](https://tanstack.com/query) | Server state management in React |
-| [Sonner](https://sonner.emilkowal.ski/) | Toast notification library |
 
-> **Credit:** The scoring algorithm and character weight data are the intellectual work of the EVC team. This project does not claim ownership of those values — it reimplements the formula locally for personal use.
+> **Credit:** The scoring algorithm and character weight data are the intellectual work of the EVC team. This project reimplements the formula locally for personal use and does not claim ownership of those values.
 
 ---
 

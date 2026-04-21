@@ -8,10 +8,11 @@ dist/
 *.egg
 .eggs/
 
-# Environment
+# Environment — never commit real credentials
 .env
 .env.local
 .env.*.local
+# (keep .env.example files — they are safe templates)
 
 # Database
 *.db

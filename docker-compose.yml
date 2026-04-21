@@ -1,28 +1,49 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: echoes-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: echoes_optimizer
+      POSTGRES_USER: ${POSTGRES_USER:-echoes_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-echoes_user} -d echoes_optimizer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: echoes-backend
     restart: unless-stopped
-    env_file: ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      # Override localhost → container name for DB
-      DATABASE_URL: postgresql+asyncpg://echoes_user:your_password@shared-postgres:5432/echoes_optimizer
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-echoes_user}:${POSTGRES_PASSWORD}@postgres:5432/echoes_optimizer
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       UPLOAD_DIR: /app/uploads
-      ALLOWED_ORIGINS: http://echoes.local,http://localhost
       DATA_DIR: /app/data
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
     volumes:
       - uploads:/app/uploads
       - evc_state:/app/data
     networks:
       - internal
-      - easm_toolkit_default   # join existing postgres network
 
   frontend:
     build: ./frontend
     container_name: echoes-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${PORT:-80}:80"
     depends_on:
       - backend
     networks:
@@ -31,9 +52,8 @@ services:
 networks:
   internal:
     driver: bridge
-  easm_toolkit_default:
-    external: true            # reuse existing postgres network
 
 volumes:
+  postgres_data:
   uploads:
   evc_state:

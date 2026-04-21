@@ -40,17 +40,17 @@ npm run dev   # port 5174
 
 | Container | Image | Port | Mô tả |
 |---|---|---|---|
-| `echoes-frontend` | nginx:alpine + React build | 0.0.0.0:80 | Serve static + proxy /api |
+| `echoes-frontend` | nginx:alpine + React build | `${PORT:-80}`:80 | Serve static + proxy /api |
 | `echoes-backend` | python:3.12-slim | internal:8001 | FastAPI |
-| `shared-postgres` | postgres:16-alpine | 5432 | DB dùng chung, external |
+| `echoes-postgres` | postgres:16-alpine | internal:5432 | PostgreSQL (self-contained) |
 
 ### Networks
-- `echoes_optimizer_internal`: frontend ↔ backend
-- `easm_toolkit_default` (external): backend ↔ shared-postgres
+- `internal` (bridge): tất cả 3 container kết nối với nhau
 
 ### Volumes
-- `echoes_optimizer_uploads`: ảnh echo upload
-- `echoes_optimizer_evc_state`: file `evc_status.json`
+- `postgres_data`: dữ liệu PostgreSQL
+- `uploads`: ảnh echo upload
+- `evc_state`: file `evc_status.json`
 
 ### Khởi động / Dừng
 ```bash
@@ -99,19 +99,21 @@ Cấu hình nginx proxy trong `nginx/echoes.conf` (không còn dùng sau khi có
 
 ### Connection
 ```
-Host: localhost:5432 (Docker: shared-postgres)
+Host: localhost:5432 (Docker: echoes-postgres service)
 DB:   echoes_optimizer
-User: echoes_user / Pass: your_password
+User: echoes_user (default) — see POSTGRES_USER in .env
+Pass: see POSTGRES_PASSWORD in .env
 ```
 
-### psql
+### psql (Docker)
 ```bash
-PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer
+# Password from .env
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer
 ```
 
 ### Reset tables (nếu schema thay đổi)
 ```bash
-PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer \
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer \
   -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
 # Restart backend → tự tạo lại + seed characters
 # Lưu ý: xóa character_profiles sẽ mất build status của tất cả nhân vật
@@ -121,21 +123,22 @@ PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer 
 
 ## Env Files
 
-### backend/.env (local dev)
+### Docker (root `.env`)
+Copy `.env.example` → `.env` and fill in values. docker-compose reads this automatically.
 ```
-DATABASE_URL=postgresql+asyncpg://echoes_user:your_password@localhost:5432/echoes_optimizer
-GOOGLE_API_KEY=<key>        # aistudio.google.com, free 1000 req/day
-UPLOAD_DIR=/home/ubuntu-dev/Projects/Echoes_Optimizer/backend/uploads
-MAX_UPLOAD_SIZE_MB=20
-ALLOWED_ORIGINS=http://localhost:5174,http://localhost:3000
+POSTGRES_PASSWORD=your_password
+GOOGLE_API_KEY=your_google_ai_key
+PORT=80
+ALLOWED_ORIGINS=http://localhost
 ```
 
-### docker-compose.yml overrides (production)
+### Local dev (`backend/.env`)
+Copy `backend/.env.example` → `backend/.env`:
 ```
-DATABASE_URL: postgresql+asyncpg://...@shared-postgres:5432/...  ← container name
-UPLOAD_DIR:   /app/uploads
-DATA_DIR:     /app/data
-ALLOWED_ORIGINS: http://echoes.local,http://localhost,http://your-server-ip
+DATABASE_URL=postgresql+asyncpg://echoes_user:your_password@localhost:5432/echoes_optimizer
+GOOGLE_API_KEY=your_key
+UPLOAD_DIR=/path/to/backend/uploads
+ALLOWED_ORIGINS=http://localhost:5174
 ```
 
 ---

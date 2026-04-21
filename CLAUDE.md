@@ -52,10 +52,10 @@ Production URL: `http://echoes.local` (port 80) — Avahi mDNS broadcast, resolv
 
 ```bash
 # psql
-PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer  # password from .env
 
 # Reset all tables (backend re-creates + re-seeds characters on next startup)
-PGPASSWORD="your_password" psql -h localhost -U echoes_user -d echoes_optimizer \
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer  # password from .env \
   -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
 ```
 
