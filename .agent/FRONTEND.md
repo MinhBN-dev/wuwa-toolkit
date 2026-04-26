@@ -22,9 +22,10 @@ frontend/
     │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
     │   └── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
     ├── components/
-    │   ├── EchoUploader.tsx   Drag-and-drop image upload → gọi OCR API
+    │   ├── Logo.tsx           SVG hexagonal "O" mark — gradient stroke + spinning diamond center
+    │   ├── EchoUploader.tsx   Drag-and-drop image upload → gọi OCR API (uses .dropzone-frame)
     │   ├── StatsEditor.tsx    Edit sub-stats với roll quality bars; prop `hideMeta` ẩn name/cost
-    │   ├── ScoreDisplay.tsx   Score result: tier label box, percent bar, stat breakdown
+    │   ├── ScoreDisplay.tsx   Score result: big tier-colored number, glow bar, stat breakdown, tier ladder
     │   ├── EchoCard.tsx       Grid card cho saved echo (tier label badge, stats, delete)
     │   ├── ErInfo.tsx         Hiển thị ER Target + ER Importance khi chọn nhân vật
     │   ├── SaveEchoDialog.tsx Modal xác nhận trước khi lưu: name/cost/main stat editable, sub stats + score readonly
@@ -120,15 +121,37 @@ saveName: string
 ## Colors (Tailwind custom)
 
 ### Background / Surface
-- `bg-ww-bg` #0d1117 | `bg-ww-surface` #161b22 | `border-ww-border` #30363d
-- `text-ww-accent` #e8a045 (gold) | `text-ww-muted` #8b949e
+- `bg-ww-bg-deep` #070912 | `bg-ww-bg` #0a0e1a | `bg-ww-surface` #161b22 | `bg-ww-surface-2` #1c2230
+- `border-ww-border` #2a3142 | `border-ww-border-glow` #3a4256
+- `text-ww-text` #e6e8ee | `text-ww-muted` #8b949e
+
+### Accents
+- `text-ww-accent` #e8a045 (gold) | `text-ww-cyan` #67e8f9 | `text-ww-purple` #a78bfa
 
 ### Tiers
 - `text-tier-S` orange #ff9500 | `text-tier-A` purple #c084fc
 - `text-tier-B` blue #60a5fa | `text-tier-C` green #4ade80 | `text-tier-D` slate #94a3b8
 
+### Element (Glacio/Fusion/Electro/Aero/Spectro/Havoc)
+Defined in `tailwind.config.ts`; also inlined in Home.tsx for runtime tag styling.
+
 ## Component Classes (index.css)
-- `.card` = bg-ww-surface + border + rounded + p-4
-- `.btn-primary` = gold bg, black text
-- `.btn-secondary` = border bg, white text
-- `.input` / `.select` = dark bg, border, focus accent
+
+Design system: **WuWa-inspired tech-arcane** — dark navy base, glassmorphism panels, cyan-purple-gold accents, Rajdhani display font + Inter body.
+
+- `.glass` / `.glass-strong` — frosted-glass panels (backdrop-blur + subtle border + shadow)
+- `.panel-tech` — `.glass` + diagonal corner cuts (clip-path) + cyan corner ticks (::before/::after)
+- `.section-label` — small caps cyan headings with leading hairline accent
+- `.btn-primary` — gold gradient with diagonal slant clip-path + gold glow
+- `.btn-secondary` — bordered, hover-glow cyan, slant clip-path
+- `.btn-icon` — small square reset/utility button
+- `.btn-danger` — dark-red bordered (used in dialogs)
+- `.input` / `.select` — dark bg, focus glow cyan, Rajdhani font
+- `.dropzone-frame` / `.dropzone-active` — dashed gradient border with hover/active glow
+- `.readout` — Rajdhani tabular-nums for stat numbers
+- `.shimmer-line` — animated cyan gradient sweep (used on score bar)
+- `.text-glow-cyan` / `.text-glow-gold` — text-shadow utilities
+- `.above-stars` — z-index helper to sit above body::before starfield overlay
+- Animations: `animate-fade-up`, `animate-count-in`, `animate-pulse-glow`, `animate-shimmer`, `animate-spin-slow`
+
+Fonts loaded via Google Fonts in `index.html`: Rajdhani (400/500/600/700) + Inter (400/500/600).

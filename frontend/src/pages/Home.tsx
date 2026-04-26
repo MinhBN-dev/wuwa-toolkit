@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, RotateCcw, Save } from 'lucide-react'
+import { RefreshCw, RotateCcw, Save, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import EchoUploader from '../components/EchoUploader'
 import StatsEditor from '../components/StatsEditor'
@@ -147,32 +147,73 @@ export default function HomePage() {
     tier: scoreResult?.tier,
   }
 
+  const elementColor = selectedChar
+    ? (
+        {
+          Glacio: '#7dd3fc',
+          Fusion: '#f97316',
+          Electro: '#a855f7',
+          Aero: '#34d399',
+          Spectro: '#facc15',
+          Havoc: '#e879f9',
+        } as Record<string, string>
+      )[selectedChar.element] ?? '#67e8f9'
+    : '#67e8f9'
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left: Character selector + Upload */}
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-fade-up">
+      {/* Page hero */}
+      <div className="mb-6 flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <p className="section-label mb-1">Echo Analysis</p>
+          <h1 className="font-display font-bold text-3xl uppercase tracking-[0.15em] text-ww-text">
+            Calibrate <span className="text-ww-cyan text-glow-cyan">Echo</span> Performance
+          </h1>
+          <p className="text-ww-muted text-sm mt-1">
+            Upload a screenshot or enter sub-stats manually — score with the EVC 3.2 formula.
+          </p>
+        </div>
+        {selectedChar && (
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-display uppercase tracking-wider"
+            style={{
+              borderColor: `${elementColor}55`,
+              background: `${elementColor}15`,
+              color: elementColor,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: elementColor, boxShadow: `0 0 8px ${elementColor}` }} />
+            {selectedChar.name} · {selectedChar.element}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+        {/* ─── Left: Resonator + Upload ──────────────────────────────────── */}
         <div className="space-y-4">
-          <div className="card space-y-3">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-ww-accent">Resonator</h3>
+          <section className="panel-tech p-5 space-y-3">
+            <h3 className="section-label">Resonator</h3>
             <select
               className="select"
               value={selectedChar?.id ?? ''}
               onChange={e => handleCharacterChange(characters.find(c => c.id === e.target.value) ?? null)}
             >
-              <option value="">— Chọn Resonator trước —</option>
+              <option value="">— Select Resonator —</option>
               {characters.map(c => (
                 <option key={c.id} value={c.id}>{c.name} ({c.element} · {c.role})</option>
               ))}
             </select>
 
             {selectedChar && (
-              <div className="space-y-2">
+              <div className="space-y-3 pt-1">
                 <div>
-                  <label className="text-xs text-ww-muted block mb-1">Total ER% of build</label>
+                  <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+                    Total ER%
+                  </label>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input"
+                    className="input readout text-base"
                     value={totalER}
                     onChange={e => setTotalER(e.target.value)}
                     placeholder="e.g. 132.0"
@@ -183,18 +224,18 @@ export default function HomePage() {
                 )}
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="card">
-            <h2 className="font-semibold text-ww-text mb-3">Upload Echo Screenshot</h2>
+          <section className="panel-tech p-5 space-y-3">
+            <h3 className="section-label">Upload / Paste</h3>
             <EchoUploader
               onExtracted={handleExtracted}
-              blockedReason={!selectedChar ? 'Chọn Resonator trước để import echo' : undefined}
+              blockedReason={!selectedChar ? 'Select Resonator first to import an echo' : undefined}
             />
-          </div>
+          </section>
         </div>
 
-        {/* Middle: Stats Editor (hideMeta — name/cost in save dialog) */}
+        {/* ─── Middle: Stats editor ───────────────────────────────────────── */}
         <div>
           <StatsEditor
             echoInfo={echoInfo}
@@ -207,7 +248,7 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Right: Score + Actions */}
+        {/* ─── Right: Score + actions ────────────────────────────────────── */}
         <div className="space-y-4">
           <div className="flex gap-2">
             <button
@@ -216,14 +257,15 @@ export default function HomePage() {
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${scoreMut.isPending ? 'animate-spin' : ''}`} />
-              {scoreMut.isPending ? 'Calculating...' : 'Calculate Score'}
+              {scoreMut.isPending ? 'Calculating' : 'Calculate'}
+              {!scoreMut.isPending && <ChevronRight className="w-4 h-4" />}
             </button>
-            <button onClick={handleReset} className="btn-secondary px-3" title="Reset">
+            <button onClick={handleReset} className="btn-icon" title="Reset">
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
 
-          {scoreResult && <ScoreDisplay score={scoreResult} />}
+          {scoreResult && <div className="animate-count-in"><ScoreDisplay score={scoreResult} /></div>}
 
           {scoreResult && (
             <button
@@ -236,11 +278,14 @@ export default function HomePage() {
           )}
 
           {!scoreResult && (
-            <div className="card text-center py-8">
-              <p className="text-ww-muted text-sm">
+            <div className="panel-tech px-5 py-10 text-center">
+              <div className="mx-auto w-12 h-12 mb-3 rounded-md border border-ww-cyan/40 bg-ww-cyan/5 flex items-center justify-center text-ww-cyan animate-pulse-glow">
+                ◆
+              </div>
+              <p className="text-ww-muted text-sm leading-relaxed whitespace-pre-line">
                 {!selectedChar
-                  ? 'Chọn resonator, sau đó paste ảnh echo'
-                  : 'Paste ảnh echo hoặc nhập thủ công,\nrồi nhấn "Calculate Score"'}
+                  ? 'Select a Resonator,\nthen paste or upload an echo screenshot.'
+                  : 'Paste echo image (Ctrl+V) or edit sub-stats,\nthen run Calculate.'}
               </p>
             </div>
           )}
