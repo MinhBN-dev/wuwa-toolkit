@@ -29,10 +29,6 @@ frontend/
     │   ├── ErInfo.tsx         Hiển thị ER Target + ER Importance khi chọn nhân vật
     │   ├── SaveEchoDialog.tsx Modal xác nhận trước khi lưu: name/cost/main stat editable, sub stats + score readonly
     │   └── EvcBanner.tsx      Banner vàng thông báo EVC update (localStorage + server ack)
-    ├── utils/
-    │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
-    │   ├── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
-    │   └── character.ts     getBaseName, getCharacterSlug, getCharacterIcon, build status helpers
     └── pages/
         ├── Home.tsx         Upload + edit + calculate + save echo lẻ
         ├── Set.tsx          Full set 5 slots: OCR, paste target, score all, save/load set

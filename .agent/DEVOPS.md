@@ -1,5 +1,26 @@
 # Echoes Optimizer — DevOps & Environment
 
+> Source of truth cho: chạy local/Docker, env, DB, deployment URLs, troubleshooting.
+
+## Service Map
+
+### Local dev
+```
+http://localhost:5174  ← Frontend (Vite dev server)
+http://localhost:8001  ← Backend (FastAPI + uvicorn --reload)
+http://localhost:8001/docs  ← Swagger UI
+localhost:5432         ← PostgreSQL (Docker: echoes-postgres / shared-postgres tùy setup)
+```
+
+### Docker production
+```
+http://echoes.local (port ${PORT:-80}) ← nginx (echoes-frontend container)
+    ├── /*        → static React build
+    ├── /api/     → echoes-backend (:8001)
+    └── /uploads/ → echoes-backend (:8001)
+```
+Hostname `echoes.local` broadcast qua Avahi mDNS — mọi máy LAN tự resolve. Local dev: Vite proxy `/api` → `localhost:8001` trực tiếp (không qua nginx).
+
 ## Local Development
 
 ### Prerequisites
@@ -9,9 +30,11 @@
 
 ### Cách chạy local (dev mode)
 
-**1. PostgreSQL** — đã chạy sẵn trong Docker
+**1. PostgreSQL** — phải chạy sẵn trong Docker
 ```bash
-docker ps | grep shared-postgres   # kiểm tra
+# Public default (docker-compose.yml standalone): container `echoes-postgres`
+# Trên máy dev này (override): container `shared-postgres` dùng chung nhiều project
+docker ps | grep -E 'echoes-postgres|shared-postgres'
 ```
 
 **2. Backend**
@@ -61,8 +84,13 @@ services:
   postgres:
     profiles: ["disabled"]   # dùng shared-postgres thay vì standalone
   backend:
+    depends_on:
+      postgres:
+        condition: service_started
+        required: false
     environment:
-      DATABASE_URL: postgresql+asyncpg://...@shared-postgres:5432/echoes_optimizer
+      # shared-postgres convention: {project}_user / {project}_db
+      DATABASE_URL: postgresql+asyncpg://echoes_user:${POSTGRES_PASSWORD}@shared-postgres:5432/echoes_db
     networks:
       - internal
       - easm_toolkit_default
@@ -77,7 +105,7 @@ networks:
   nginx_proxy_default:
     external: true
 ```
-File này đã được thêm vào `.gitignore`.
+File này đã được thêm vào `.gitignore`. Public users không cần file này (standalone postgres tự đủ).
 
 ### Khởi động / Dừng
 ```bash
@@ -125,22 +153,27 @@ Cấu hình nginx proxy trong `nginx/echoes.conf` (không còn dùng sau khi có
 ## Database
 
 ### Connection
-```
-Host: localhost:5432 (Docker: echoes-postgres service)
-DB:   echoes_optimizer
-User: echoes_user (default) — see POSTGRES_USER in .env
-Pass: see POSTGRES_PASSWORD in .env
-```
+| Setup | Container | DB | User |
+|---|---|---|---|
+| Public default (standalone) | `echoes-postgres` | `echoes_optimizer` | `echoes_user` |
+| Máy dev này (override → shared) | `shared-postgres` | `echoes_db` | `echoes_user` |
 
-### psql (Docker)
+Password: see `POSTGRES_PASSWORD` in `.env`. Cả 2 setup đều expose port `5432` trên host.
+
+### psql
+
 ```bash
-# Password from .env
+# Public default
 PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer
+
+# Máy dev này (shared-postgres)
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_db
 ```
 
 ### Reset tables (nếu schema thay đổi)
 ```bash
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer \
+# Thay -d <db_name> theo setup tương ứng (echoes_optimizer hoặc echoes_db)
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d <db_name> \
   -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
 # Restart backend → tự tạo lại + seed characters
 # Lưu ý: xóa character_profiles sẽ mất build status của tất cả nhân vật
@@ -184,8 +217,9 @@ git add -A && git commit -m "..." && git push
 ## Common Issues
 
 ### Backend không kết nối DB
-→ `docker ps | grep shared-postgres`
-→ Kiểm tra DATABASE_URL trong `backend/.env`
+→ `docker ps | grep -E 'echoes-postgres|shared-postgres'` — postgres container phải đang up
+→ Kiểm tra `DATABASE_URL` (Docker: trong `docker-compose.override.yml`/`docker-compose.yml`; local dev: `backend/.env`)
+→ Nếu shared-postgres reset: DB name hiện là `echoes_db` (theo convention `{project}_db`), không phải `echoes_optimizer`
 
 ### OCR không hoạt động
 → Kiểm tra GOOGLE_API_KEY trong `backend/.env`

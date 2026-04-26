@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Before You Start
 
-**Read memory first** — check `/home/ubuntu-dev/.claude/projects/-home-ubuntu-dev-Projects-Echoes-Optimizer/memory/MEMORY.md` before starting any task. It contains user preferences, feedback on past approaches, and project context that must inform your work.
+**Read memory** — `/home/ubuntu-dev/.claude/projects/-home-ubuntu-dev-Projects-Echoes-Optimizer/memory/MEMORY.md` (user preferences, past feedback, project context).
 
-**Read `.agent/INDEX.md` first** — it maps every file and quick-lookup pattern, saving you from reading source files unnecessarily. Full docs in `.agent/BACKEND.md`, `.agent/FRONTEND.md`, `.agent/DEVOPS.md`, `.agent/ARCHITECTURE.md`.
+**Use `.agent/INDEX.md` as router** — for anything beyond what's in this file (full route table, scoring detail, file maps, troubleshooting), open the relevant `.agent/<area>.md`. Don't re-derive by reading source files.
 
-**Update `CLAUDE.md` after completing a task** — if you discover something that future Claude instances would benefit from knowing (a new convention, a gotcha, a workflow detail), add it here before finishing.
+**Update docs alongside code (same task, not later):**
+- New endpoint / model / scoring change → `.agent/BACKEND.md`
+- New page / component / type / API call → `.agent/FRONTEND.md`
+- Env / Docker / deployment / DB change → `.agent/DEVOPS.md`
+- New convention or non-obvious gotcha → this file (`CLAUDE.md`)
 
-**Update `.agent/` docs alongside every code change** — same task, not a separate step. Stale docs waste context in future sessions. Rules:
-- New endpoint → `.agent/BACKEND.md` (routes table)
-- New component/page → `.agent/FRONTEND.md`
-- Deployment/env change → `.agent/DEVOPS.md`
-- Architecture/algorithm change → `.agent/ARCHITECTURE.md`
+The detailed docs are intentionally **the** source of truth — don't duplicate them here. If you'd write more than 1 line about the topic, it belongs in `.agent/`.
 
 ---
 
@@ -32,143 +32,58 @@ export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 cd frontend && npm run dev
 ```
 
-Local URLs: frontend `http://localhost:5174`, backend API `http://localhost:8001/api/v1`, Swagger `http://localhost:8001/docs`
+URLs: frontend `http://localhost:5174`, backend `http://localhost:8001/api/v1`, Swagger `http://localhost:8001/docs`.
 
 ### Docker (production)
 
 ```bash
-# Rebuild and redeploy a single service after code changes
-docker compose build frontend && docker compose up -d frontend
-docker compose build backend  && docker compose up -d backend
-
-# View logs
-docker compose logs -f backend
-docker compose logs -f frontend
+docker compose build <service> && docker compose up -d <service>   # rebuild 1 service
+docker compose logs -f <service>
 ```
 
-Production URL: `http://echoes.local` (port 80) — Avahi mDNS broadcast, resolves on all LAN machines. Also `http://your-server-ip`.
+Production URL: `http://echoes.local` (Avahi mDNS, LAN-wide).
 
-**`docker-compose.override.yml`** — file này KHÔNG commit vào git (đã có trong `.gitignore`). Dùng để override config cho máy dev cụ thể (shared postgres, nginx-proxy network). Public users không cần file này.
+`docker-compose.override.yml` is gitignored — used on this machine to swap to `shared-postgres` and join the LAN nginx-proxy. Public users don't need it. Detail in `.agent/DEVOPS.md`.
 
 ### Database
 
-```bash
-# psql
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer  # password from .env
+DB name depends on setup:
+- **Public default** (standalone `echoes-postgres`): `echoes_optimizer`
+- **This machine** (override → `shared-postgres`, naming convention `{project}_db`): `echoes_db`
 
-# Reset all tables (backend re-creates + re-seeds characters on next startup)
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d echoes_optimizer  # password from .env \
-  -c "DROP TABLE IF EXISTS character_profiles, echo_sets, echoes, characters CASCADE;"
+```bash
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d <db_name>
 ```
 
-### Frontend type-check
+Reset tables → `.agent/DEVOPS.md`.
 
+### Frontend type-check
 ```bash
 cd frontend && npx tsc --noEmit
 ```
 
 ---
 
-## Architecture
-
-FastAPI + React app for scoring Wuthering Waves Echoes using the EVC 3.2 formula.
-
-### Request flow
-
-```
-Browser → nginx (echoes-frontend :80)
-    /api/*     → echoes-backend :8001 (FastAPI)
-    /uploads/* → echoes-backend :8001
-    /*         → static React build
-```
-
-Local dev: Vite proxies `/api` → `localhost:8001` directly (no nginx).
-
-### Backend (`backend/app/`)
-
-| Path | Purpose |
-|------|---------|
-| `main.py` | FastAPI app, CORS, lifespan (creates tables, seeds characters if empty) |
-| `models/echo.py` | SQLAlchemy ORM: `Character`, `Echo`, `EchoSet`, `CharacterProfile` |
-| `schemas/echo.py` | Pydantic schemas — `EchoCreate`, `EchoResponse`, `ScoreRequest`, `SetScoreRequest`, `EchoSetSaveRequest`, `CharacterProfileUpsert`, `BulkProfileUpsert`, etc. |
-| `routers/` | One file per domain: `echoes`, `characters`, `scoring`, `ocr`, `sets`, `evc_status`, `character_profiles` |
-| `services/scoring_service.py` | EVC algorithm — AV/EP/ES, stateful ER across sets, **no score cap** |
-| `services/ocr_service.py` | EasyOCR (local, primary) → Gemini → OpenAI → Anthropic fallback chain |
-| `data/game_data.py` | `CHARACTER_DATA` (weights + ER targets), `SUBSTAT_MEDIANS`, `TIER_THRESHOLDS` |
-
-### Frontend (`frontend/src/`)
-
-| Path | Purpose |
-|------|---------|
-| `pages/Home.tsx` | Single echo: upload → score → save |
-| `pages/Set.tsx` | 5-slot set: OCR per slot, paste target, score all (EVC full mode), save/load |
-| `pages/Saved.tsx` | Echo library: filter by tier/character/name, delete |
-| `pages/Characters.tsx` | Resonator roster + build status (server-synced via `/character-profiles`) |
-| `services/api.ts` | All API calls (axios) — single source of truth |
-| `utils/tier.ts` | `TIER_THRESHOLDS`, `getTierLabel`, `getTierClass`, `getBarColor` — frontend tier source of truth |
-| `utils/echoHelpers.ts` | `snapToRoll`, `defaultSubStatsForChar` — shared between Home and Set |
-| `utils/character.ts` | `getBaseName`, `getCharacterIcon`, build status helpers, localStorage read functions |
-| `types/echo.ts` | All TypeScript interfaces |
-
-### Docker containers
-
-| Container | Port | Role |
-|-----------|------|------|
-| `echoes-frontend` | 0.0.0.0:80 | nginx — serves static build + proxies `/api` |
-| `echoes-backend` | internal:8001 | FastAPI + uvicorn |
-| `shared-postgres` | 5432 | PostgreSQL 16 (external, shared with other projects) |
-
-Networks: `echoes_optimizer_internal` (frontend ↔ backend), `easm_toolkit_default` (backend ↔ postgres).
-Volumes: `echoes_optimizer_uploads` (images), `echoes_optimizer_evc_state` (`evc_status.json`).
-
----
-
-## Scoring Algorithm
-
-### Single echo (`POST /score/calculate`) — stateless
-
-```
-AV = Σ (value / substat_median) × character_weight   for each substat
-EP = sum of top-5 character weights (+ er_ep weight if ER needed)
-ES = (AV / EP) × 100    ← NOT capped, can exceed 100
-```
-
-### Full-set (`POST /score/calculate-set`) — stateful ER
-
-**Always use this for the Set page.** Never call single-echo scoring 5× — ER state is shared sequentially and results will differ from EVC.
-
-Processing order: echoes **with ER substat first**, then the rest. ER budget initialized as `er_net = total_er - req_er` (negative = deficit). Carried forward echo-to-echo via `_score_one_stateful()`.
-
-### Tier labels
-
-| score_percent | Label |
-|---------------|-------|
-| ≥ 99 | Godly |
-| ≥ 88 | Extreme |
-| ≥ 77 | High Investment |
-| ≥ 66 | Well Built |
-| ≥ 55 | Decent |
-| ≥ 44 | Base Level |
-| < 44 | Unbuilt |
-
----
-
 ## Key Conventions
 
-**Tier labels** are EVC strings everywhere (DB, API, frontend). Old letter grades S/A/B/C/D are fully removed. DB columns `echoes.tier` and `echo_sets.set_tier` are `VARCHAR(50)`.
+These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
-**score_percent is uncapped** — values > 100 are valid. Frontend progress bars use `Math.min(score, 100)` for visual width only; displayed numbers show the real value.
+- **EVC tier labels everywhere** — DB stores the strings (`"Godly"`, `"High Investment"`, ...) in `VARCHAR(50)`. Old letter grades S/A/B/C/D fully removed. Source of truth: `data/game_data.py → TIER_THRESHOLDS` (backend) and `frontend/src/utils/tier.ts` (frontend) — keep them in sync.
 
-**Stat name duality** — frontend/OCR uses display names (`"Crit Rate"`, `"ATK%"`, `"ER%"`); EVC algorithm uses internal names (`"Crit Rate(%)"`, `"Atk(%)"`, `"ER(%)"`). Mapping: `scoring_service.py → STAT_NAME_MAP`.
+- **`score_percent` is uncapped** — values > 100 are valid. Frontend bars use `Math.min(score, 100)` for visual width only; displayed numbers show the real value.
 
-**Echo deduplication** — fingerprint is `(echo_name, echo_cost, substats sorted by type, values rounded 3dp)`. `POST /echoes/find-or-create` is the only save path; there is no plain `POST /echoes`.
+- **Stat name duality** — frontend/OCR uses display names (`"Crit Rate"`, `"ATK%"`, `"ER%"`); EVC algorithm uses internal names (`"Crit Rate(%)"`, `"Atk(%)"`, `"ER(%)"`). Mapping: `scoring_service.py → STAT_NAME_MAP`.
 
-**Schema migrations** — no migrations framework. Run `ALTER TABLE` manually in psql, update the SQLAlchemy model, then rebuild the backend container.
+- **Echo dedup is the only save path** — `POST /echoes/find-or-create` (fingerprint = name + cost + sorted substats rounded 3dp). There is **no** plain `POST /echoes`.
 
-**Adding a new character** — edit `backend/app/data/game_data.py`: add to `CHARACTER_WEIGHTS`, `CHARACTER_LIST`, and `CHARACTER_ER`. DB re-seeds automatically on next backend restart (if characters table is empty, otherwise run a manual insert or reset).
+- **Set page must use `POST /score/calculate-set`** — never call single-echo scoring 5×. ER state is shared sequentially across echoes; arithmetic mean of single scores diverges from EVC.
 
-**OCR provider** — primary is EasyOCR (local, no API key, ~140 MB models pre-downloaded in Docker image). Falls back in order: Gemini `gemini-2.5-flash` → OpenAI → Anthropic. Do NOT use `gemini-2.0-flash` — rate limit = 0 on new projects. Key in `backend/.env`: `GOOGLE_API_KEY`.
+- **OCR is local-first** — EasyOCR (no API key, ~140 MB models in image) → Gemini `gemini-2.5-flash` → OpenAI → Anthropic. **Never use `gemini-2.0-flash`** (rate limit = 0 on new projects).
 
-**Character build status** — stored server-side in `character_profiles` table (not localStorage). `Characters.tsx` auto-migrates from localStorage on first load when server has no data. All subsequent reads/writes go to `GET/PUT /api/v1/character-profiles`.
+- **Character build status is server-side** — `character_profiles` table, accessed via `GET/PUT /api/v1/character-profiles`. `Characters.tsx` auto-migrates from localStorage once on first load when server is empty.
 
-**EVC banner** — `GET /evc-status` is fetched once per session (`staleTime: Infinity`). Acknowledge writes to both `evc_status.json` (server volume) and `localStorage` (client).
+- **EVC banner fetched once per session** — `staleTime: Infinity`. Acknowledge writes both `evc_status.json` (server volume) and `localStorage` (client).
+
+- **No migrations framework** — schema changes = manual `ALTER TABLE` in psql, update SQLAlchemy model, rebuild backend container.
+
+- **Adding a new character** — entry in `data/game_data.py → CHARACTER_DATA` (weights + er_target + er_imp + er_imp_label) and `CHARACTER_LIST`. DB re-seeds automatically on next restart if `characters` table is empty.
