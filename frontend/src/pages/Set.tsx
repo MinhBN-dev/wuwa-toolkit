@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Loader2, TrendingUp, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair } from 'lucide-react'
+import { Upload, Loader2, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair, Layers } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
@@ -8,8 +8,15 @@ import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
 import { snapToRoll, defaultSubStatsForChar } from '../utils/echoHelpers'
 
-
-// ── Slot state ────────────────────────────────────────────────────────────────
+const TIER_COLOR: Record<string, string> = {
+  Godly: '#ff9500',
+  Extreme: '#ff9500',
+  'High Investment': '#c084fc',
+  'Well Built': '#60a5fa',
+  Decent: '#60a5fa',
+  'Base Level': '#4ade80',
+  Unbuilt: '#94a3b8',
+}
 
 interface SlotState {
   echoName: string
@@ -35,8 +42,6 @@ function emptySlot(charName?: string, charWeights?: Record<string, Record<string
   }
 }
 
-// ── EchoSlot component ────────────────────────────────────────────────────────
-
 interface SlotProps {
   index: number
   slot: SlotState
@@ -60,26 +65,33 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
     s.value > 0 && (!charWeights || charWeights[s.type] !== undefined)
   )
 
-  const tierClass = slot.scoreResult ? getTierClass(getTierLabel(slot.scoreResult.score_percent)) : ''
+  const tierLabel = slot.scoreResult ? getTierLabel(slot.scoreResult.score_percent) : null
+  const tierColor = tierLabel ? TIER_COLOR[tierLabel] ?? '#67e8f9' : null
 
   return (
-    <div className={`card flex flex-col gap-3 transition-all ${isPasteTarget ? 'ring-2 ring-ww-accent' : ''}`}>
+    <div
+      className="panel-tech p-4 flex flex-col gap-3 transition-all"
+      style={isPasteTarget ? { boxShadow: `0 0 0 1px rgba(232,160,69,0.6), 0 0 20px rgba(232,160,69,0.25)` } : undefined}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <button
           onClick={onSelectTarget}
-          title="Chọn làm paste target"
-          className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
-            isPasteTarget ? 'text-ww-accent' : 'text-ww-muted hover:text-ww-text'
+          title="Set as paste target"
+          className={`flex items-center gap-1.5 text-[11px] font-display font-bold uppercase tracking-[0.15em] transition-colors ${
+            isPasteTarget ? 'text-ww-accent' : 'text-ww-muted hover:text-ww-cyan'
           }`}
         >
           <Crosshair className="w-3.5 h-3.5" />
-          Echo {index + 1}
+          Slot {index + 1}
         </button>
         <div className="flex items-center gap-2">
-          {slot.scoreResult && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${tierClass}`}>
-              {getTierLabel(slot.scoreResult.score_percent)} · {slot.scoreResult.score_percent.toFixed(3)}%
+          {slot.scoreResult && tierColor && (
+            <span
+              className="readout text-[10px] font-display font-bold uppercase tracking-wider px-2 py-0.5 rounded border leading-none"
+              style={{ color: tierColor, borderColor: `${tierColor}66`, background: `${tierColor}15` }}
+            >
+              {slot.scoreResult.score_percent.toFixed(1)}
             </span>
           )}
           {(slot.imageUrl || slot.subStats.some(s => s.value > 0)) && (
@@ -92,21 +104,17 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
 
       {/* Upload zone / preview */}
       {slot.imageUrl ? (
-        <div className="relative rounded-lg overflow-hidden border border-ww-border">
-          <img src={slot.imageUrl} alt="" className="w-full object-contain bg-black/20 max-h-32" />
+        <div className="relative rounded-md overflow-hidden border border-ww-border-glow">
+          <img src={slot.imageUrl} alt="" className="w-full object-contain bg-black/30 max-h-32" />
           {slot.loading && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <Loader2 className="w-5 h-5 text-ww-accent animate-spin" />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-ww-cyan animate-spin" />
             </div>
           )}
         </div>
       ) : (
         <div
-          className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all
-            ${isPasteTarget
-              ? 'border-ww-accent/60 bg-ww-accent/5 hover:bg-ww-accent/10'
-              : 'border-ww-border hover:border-ww-accent/40 hover:bg-ww-surface/50'
-            }`}
+          className={`dropzone-frame ${isPasteTarget ? 'dropzone-active' : ''} p-4 text-center cursor-pointer`}
           onClick={() => inputRef.current?.click()}
           onDrop={handleDrop}
           onDragOver={e => e.preventDefault()}
@@ -118,16 +126,16 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
           />
-          <Upload className="w-5 h-5 mx-auto text-ww-muted mb-1" />
-          <p className="text-xs text-ww-muted">
-            {isPasteTarget ? 'Paste (Ctrl+V) hoặc click' : 'Click để upload'}
+          <Upload className={`w-5 h-5 mx-auto mb-1 ${isPasteTarget ? 'text-ww-accent' : 'text-ww-cyan'}`} />
+          <p className="text-[10px] font-display uppercase tracking-wider text-ww-muted">
+            {isPasteTarget ? 'Paste (Ctrl+V) or click' : 'Click to upload'}
           </p>
         </div>
       )}
 
       {/* Echo name */}
       {slot.echoName && (
-        <p className="text-xs font-semibold text-ww-text truncate">{slot.echoName}</p>
+        <p className="font-display text-xs font-semibold text-ww-text truncate tracking-wide">{slot.echoName}</p>
       )}
 
       {/* Sub-stats */}
@@ -135,16 +143,21 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
         <div className="space-y-1">
           {filledStats.map((s, i) => {
             const weight = charWeights?.[s.type]
+            const wColor =
+              weight === undefined ? '#8b949e' :
+              weight >= 0.9 ? '#facc15' :
+              weight >= 0.4 ? '#4ade80' :
+                              '#8b949e'
             return (
-              <div key={i} className="flex items-center justify-between text-xs">
+              <div key={i} className="flex items-center justify-between text-[11px]">
                 <span className="text-ww-muted truncate">{s.type}</span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {weight !== undefined && (
-                    <span className={`text-[10px] font-mono px-1 rounded ${
-                      weight >= 0.9 ? 'text-yellow-300' : weight >= 0.4 ? 'text-green-300' : 'text-ww-muted'
-                    }`}>×{weight.toFixed(2)}</span>
+                    <span className="readout text-[10px] px-1 rounded" style={{ color: wColor }}>
+                      ×{weight.toFixed(2)}
+                    </span>
                   )}
-                  <span className="text-ww-text font-mono">{s.value}</span>
+                  <span className="readout text-ww-text">{s.value}</span>
                 </div>
               </div>
             )
@@ -153,12 +166,16 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
       )}
 
       {/* Score bar */}
-      {slot.scoreResult && (
-        <div className="pt-1 border-t border-ww-border">
-          <div className="w-full h-1.5 bg-ww-border rounded-full overflow-hidden">
+      {slot.scoreResult && tierColor && (
+        <div className="pt-2 border-t border-dashed border-ww-border">
+          <div className="w-full h-1 bg-ww-bg-deep/70 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(slot.scoreResult.score_percent))}`}
-              style={{ width: `${Math.min(slot.scoreResult.score_percent, 100)}%` }}
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(slot.scoreResult.score_percent, 100)}%`,
+                background: `linear-gradient(90deg, ${tierColor}99, ${tierColor})`,
+                boxShadow: `0 0 6px ${tierColor}`,
+              }}
             />
           </div>
         </div>
@@ -166,8 +183,6 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
     </div>
   )
 }
-
-// ── Set summary ───────────────────────────────────────────────────────────────
 
 function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string | null }) {
   const scored = slots.filter(s => s.scoreResult && s.scoreResult.tier_label !== 'Not Applicable')
@@ -178,8 +193,9 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
   const setScore = scored.reduce((s, sl) => s + sl.scoreResult!.score_percent, 0) / scored.length
   const tierLabel = getTierLabel(setScore)
   const tierClass = getTierClass(tierLabel)
+  const accent = TIER_COLOR[tierLabel] ?? '#67e8f9'
+  const widthPct = Math.min(setScore, 100)
 
-  // Aggregate breakdown across all scored echoes
   const breakdown: Record<string, number> = {}
   for (const sl of scored) {
     for (const [stat, val] of Object.entries(sl.scoreResult!.breakdown)) {
@@ -189,49 +205,69 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
   const sortedBreakdown = Object.entries(breakdown).sort(([, a], [, b]) => b - a).filter(([, v]) => v > 0)
 
   return (
-    <div className="card space-y-4">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="w-4 h-4 text-ww-accent" />
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-ww-accent">Set Score</h3>
-        {charName && <span className="text-xs text-ww-muted">for {charName}</span>}
-        <span className="text-xs text-ww-muted ml-auto">{scored.length}/5 echoes</span>
+    <div className="panel-tech p-5 space-y-4 animate-count-in">
+      <div className="flex items-center justify-between">
+        <h3 className="section-label">Aggregate Set Score</h3>
+        <div className="flex items-center gap-3">
+          {charName && <span className="text-[11px] uppercase tracking-wider font-display text-ww-muted">{charName}</span>}
+          <span className="text-[11px] uppercase tracking-wider font-display text-ww-muted">{scored.length}/5 echoes</span>
+        </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className={`w-24 h-24 rounded-xl border-2 flex items-center justify-center shrink-0 ${tierClass}`}>
-          <span className="text-xs font-black text-center leading-tight px-2">{tierLabel}</span>
+      <div className="flex items-center gap-5">
+        <div
+          className={`shrink-0 w-24 h-24 flex items-center justify-center rounded-md border-2 font-display font-bold uppercase text-center text-[11px] leading-tight px-2 tracking-wider ${tierClass}`}
+          style={{ boxShadow: `0 0 20px ${accent}40, inset 0 0 0 1px ${accent}30` }}
+        >
+          {tierLabel}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-end gap-2">
-            <span className="text-4xl font-black text-ww-text">{setScore.toFixed(3)}</span>
-            <span className="text-ww-muted text-lg mb-1">/ 100</span>
+            <span
+              className="readout text-5xl font-bold leading-none"
+              style={{ color: accent, textShadow: `0 0 18px ${accent}60` }}
+            >
+              {setScore.toFixed(2)}
+            </span>
+            <span className="text-ww-muted text-base mb-1 font-display">/ 100</span>
           </div>
-          <div className="w-full h-3 bg-ww-border rounded-full overflow-hidden mt-2">
+          <div className="relative w-full h-2.5 bg-ww-bg-deep/80 rounded-full mt-3 overflow-hidden border border-ww-border">
             <div
-              className={`h-full rounded-full transition-all ${getTierClass(getTierLabel(setScore))}`}
-              style={{ width: `${Math.min(setScore, 100)}%` }}
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${widthPct}%`,
+                background: `linear-gradient(90deg, ${accent}99, ${accent})`,
+                boxShadow: `0 0 12px ${accent}80`,
+              }}
             />
+            <div className="absolute inset-0 shimmer-line opacity-40 pointer-events-none" />
           </div>
-          <div className="flex justify-between text-xs text-ww-muted mt-1">
-            <span>Total AV: {totalAV.toFixed(3)}</span>
-            <span>Total EP: {totalEP.toFixed(3)}</span>
+          <div className="flex justify-between text-[11px] text-ww-muted mt-1.5 font-display uppercase tracking-wider">
+            <span>Σ AV {totalAV.toFixed(2)}</span>
+            <span>Σ EP {totalEP.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
       {sortedBreakdown.length > 0 && (
-        <div>
-          <p className="text-xs text-ww-muted uppercase tracking-wider mb-2">Combined Contributions</p>
+        <div className="pt-3 border-t border-dashed border-ww-border">
+          <p className="section-label mb-2.5">Combined Contributions</p>
           <div className="space-y-1.5">
             {sortedBreakdown.map(([stat, contrib]) => {
               const pct = totalEP > 0 ? (contrib / totalEP) * 100 : 0
               return (
                 <div key={stat} className="flex items-center gap-2">
-                  <span className="text-xs text-ww-text w-36 shrink-0">{stat}</span>
-                  <div className="flex-1 h-1.5 bg-ww-border rounded-full overflow-hidden">
-                    <div className="h-full bg-ww-accent/70 rounded-full" style={{ width: `${Math.min(pct * 4, 100)}%` }} />
+                  <span className="text-xs text-ww-text w-32 shrink-0 truncate">{stat}</span>
+                  <div className="flex-1 h-1.5 bg-ww-bg-deep/70 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(pct * 4, 100)}%`,
+                        background: `linear-gradient(90deg, ${accent}80, ${accent})`,
+                      }}
+                    />
                   </div>
-                  <span className="text-xs text-ww-muted w-12 text-right">{contrib.toFixed(3)}</span>
+                  <span className="readout text-xs text-ww-muted w-12 text-right">{contrib.toFixed(2)}</span>
                 </div>
               )
             })}
@@ -239,9 +275,14 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1 pt-1 border-t border-ww-border">
+      <div className="flex flex-wrap gap-1 pt-3 border-t border-dashed border-ww-border">
         {TIER_THRESHOLDS.map(([, lbl]) => (
-          <div key={lbl} className={`flex-1 min-w-0 text-center py-1 px-1 rounded text-[10px] font-bold border whitespace-nowrap ${getTierClass(lbl)} ${lbl === tierLabel ? 'opacity-100' : 'opacity-25'}`}>
+          <div
+            key={lbl}
+            className={`flex-1 min-w-0 text-center py-1 px-1 rounded-sm text-[9px] font-display font-bold uppercase tracking-wider border whitespace-nowrap transition-opacity ${
+              getTierClass(lbl)
+            } ${lbl === tierLabel ? 'opacity-100' : 'opacity-25'}`}
+          >
             {lbl}
           </div>
         ))}
@@ -249,8 +290,6 @@ function SetSummary({ slots, charName }: { slots: SlotState[]; charName: string 
     </div>
   )
 }
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SetPage() {
   const [selectedChar, setSelectedChar] = useState<Character | null>(null)
@@ -287,13 +326,12 @@ export default function SetPage() {
     const hasData = slots.some(slot => slot.subStats.some(s => s.value > 0))
 
     if (!hasData) {
-      toast.warning('Chưa có echo nào có dữ liệu')
+      toast.warning('No echo has data yet')
       return
     }
 
     setCalcLoading(true)
     try {
-      // Use EVC full-mode set scoring — ER state shared sequentially across all 5 echoes
       const r = await calculateSetScore({
         character_name: selectedChar?.name,
         echoes: slots.map(slot => ({
@@ -320,25 +358,23 @@ export default function SetPage() {
         }
       }))
     } catch {
-      toast.error('Tính điểm thất bại')
+      toast.error('Calculation failed')
     } finally {
       setCalcLoading(false)
     }
   }, [selectedChar, totalER, slots])
 
-  // Derive set score from current slot results (used for saving)
   const scoredSlots = slots.filter(s => s.scoreResult && s.scoreResult.tier_label !== 'Not Applicable')
   const currentSetScore = scoredSlots.length > 0
     ? scoredSlots.reduce((s, sl) => s + sl.scoreResult!.score_percent, 0) / scoredSlots.length
     : undefined
 
   const handleSave = async () => {
-    if (!saveName.trim()) { toast.warning('Nhập tên cho set'); return }
+    if (!saveName.trim()) { toast.warning('Enter a set name'); return }
     setSaveLoading(true)
     try {
       const totalERNum = parseFloat(totalER) || undefined
 
-      // find-or-create each filled slot → get echo IDs
       const echoIdMap = new Map<number, string>()
       await Promise.all(
         slots.map(async (slot, idx) => {
@@ -379,25 +415,23 @@ export default function SetPage() {
         set_score: currentSetScore,
         set_tier: currentSetScore !== undefined ? getTierLabel(currentSetScore) : undefined,
       })
-      toast.success(`Đã lưu set "${saveName.trim()}"`)
+      toast.success(`Saved set "${saveName.trim()}"`)
       setSaveName('')
       setShowSaveInput(false)
       qc.invalidateQueries({ queryKey: ['echo-sets'] })
       qc.invalidateQueries({ queryKey: ['echoes'] })
     } catch {
-      toast.error('Lưu thất bại')
+      toast.error('Save failed')
     } finally {
       setSaveLoading(false)
     }
   }
 
   const handleLoadSet = (saved: SavedEchoSet) => {
-    // Find character object
     const char = characters.find(c => c.name === saved.character_name) ?? null
     setSelectedChar(char)
     setTotalER(saved.total_er?.toString() ?? '100')
 
-    // Build 5 slots — pad with empty if saved has fewer
     const charWeightsMap = char && gameData ? gameData.character_weights : {}
     const loaded: SlotState[] = Array.from({ length: 5 }, (_, i) => {
       const s = saved.slots[i]
@@ -426,32 +460,31 @@ export default function SetPage() {
     })
     setSlots(loaded)
     setShowLoadPanel(false)
-    toast.success(`Đã load set "${saved.name}"`)
+    toast.success(`Loaded set "${saved.name}"`)
   }
 
   const handleDeleteSet = async (id: string, name: string) => {
     try {
       await deleteEchoSet(id)
-      toast.success(`Đã xoá "${name}"`)
+      toast.success(`Deleted "${name}"`)
       qc.invalidateQueries({ queryKey: ['echo-sets'] })
     } catch {
-      toast.error('Xoá thất bại')
+      toast.error('Delete failed')
     }
   }
 
   const processFile = useCallback(async (idx: number, file: File) => {
     const imageUrl = URL.createObjectURL(file)
     updateSlot(idx, { imageUrl, loading: true, scoreResult: null })
-    const toastId = toast.loading(`Echo ${idx + 1}: đang đọc...`)
+    const toastId = toast.loading(`Slot ${idx + 1}: reading…`)
 
     try {
       const result: OcrResult = await extractEchoStats(file)
-      toast.success(`Echo ${idx + 1}: đọc thành công!`, { id: toastId })
+      toast.success(`Slot ${idx + 1}: extracted!`, { id: toastId })
 
       const rolls = subStatRolls
       const ocrMap = new Map(result.sub_stats.map(s => [s.type, s.value]))
 
-      // Merge OCR into pre-populated slots
       const baseStats = selectedChar && gameData
         ? defaultSubStatsForChar(selectedChar.name, gameData.character_weights)
         : []
@@ -487,12 +520,11 @@ export default function SetPage() {
       })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast.error(detail ?? 'OCR thất bại', { id: toastId })
+      toast.error(detail ?? 'OCR failed', { id: toastId })
       updateSlot(idx, { loading: false })
     }
   }, [selectedChar, gameData, subStatRolls, updateSlot])
 
-  // Global paste → pasteTarget slot
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       if (!selectedChar) return
@@ -502,7 +534,6 @@ export default function SetPage() {
       const file = imgItem.getAsFile()
       if (!file) return
       processFile(pasteTarget, file)
-      // Advance to next slot (wrap around)
       setPasteTarget((pasteTarget + 1) % 5)
     }
     window.addEventListener('paste', handlePaste)
@@ -510,54 +541,67 @@ export default function SetPage() {
   }, [selectedChar, pasteTarget, processFile])
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-      {/* Top bar */}
-      <div className="card flex flex-wrap gap-x-4 gap-y-3 items-center">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 animate-fade-up">
+      {/* Hero */}
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <p className="section-label mb-1">Full Set Calibration</p>
+          <h1 className="font-display font-bold text-3xl uppercase tracking-[0.15em] text-ww-text flex items-center gap-3">
+            <Layers className="w-7 h-7 text-ww-cyan" />
+            <span>5-Echo <span className="text-ww-cyan text-glow-cyan">Set</span></span>
+          </h1>
+          <p className="text-ww-muted text-sm mt-1">EVC full-mode scoring — ER budget shared across all 5 slots.</p>
+        </div>
+      </div>
 
-        {/* ── Resonator ───────────────────────────────── */}
+      {/* Top control bar */}
+      <section className="panel-tech p-4 flex flex-wrap gap-x-4 gap-y-3 items-end">
         <div className="flex-1 min-w-52">
-          <label className="text-xs text-ww-muted block mb-1">Resonator</label>
+          <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+            Resonator
+          </label>
           <select
             className="select w-full"
             value={selectedChar?.id ?? ''}
             onChange={e => handleCharacterChange(characters.find(c => c.id === e.target.value) ?? null)}
           >
-            <option value="">— Chọn Resonator trước —</option>
+            <option value="">— Select Resonator —</option>
             {characters.map(c => (
               <option key={c.id} value={c.id}>{c.name} ({c.element} · {c.role})</option>
             ))}
           </select>
         </div>
 
-        {/* ── ER input + badge (inline) ────────────────── */}
         <div className="flex items-center gap-3 shrink-0">
           <div>
-            <label className="text-xs text-ww-muted block mb-1">Total ER%</label>
+            <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+              Total ER%
+            </label>
             <input
               type="text"
               inputMode="decimal"
-              className="input w-24"
+              className="input readout w-24 text-base"
               value={totalER}
               onChange={e => setTotalER(e.target.value)}
               placeholder="100"
             />
           </div>
           {selectedChar && gameData?.character_er[selectedChar.name] && (
-            <ErInfo er={gameData.character_er[selectedChar.name]} totalER={totalER} />
+            <div className="pt-5">
+              <ErInfo er={gameData.character_er[selectedChar.name]} totalER={totalER} />
+            </div>
           )}
         </div>
 
-        {/* ── Divider ──────────────────────────────────── */}
-        <div className="hidden sm:block h-8 w-px bg-ww-border/60 shrink-0" />
+        <div className="hidden sm:block h-10 w-px bg-ww-border-glow shrink-0 self-end mb-1" />
 
-        {/* ── Actions ──────────────────────────────────── */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap self-end">
           <button
             onClick={() => setShowLoadPanel(v => !v)}
             className="btn-secondary flex items-center gap-2"
           >
             <FolderOpen className="w-4 h-4" />
-            Load Set
+            Load
           </button>
 
           {selectedChar && (
@@ -568,14 +612,14 @@ export default function SetPage() {
                 className="btn-primary flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${calcLoading ? 'animate-spin' : ''}`} />
-                {calcLoading ? 'Đang tính...' : 'Tính Score'}
+                {calcLoading ? 'Scoring' : 'Score All'}
               </button>
 
               {showSaveInput ? (
                 <div className="flex items-center gap-2">
                   <input
                     className="input w-40"
-                    placeholder="Tên set..."
+                    placeholder="Set name…"
                     value={saveName}
                     onChange={e => setSaveName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSave()}
@@ -587,9 +631,9 @@ export default function SetPage() {
                     className="btn-primary flex items-center gap-1"
                   >
                     <Save className="w-4 h-4" />
-                    {saveLoading ? '...' : 'Lưu'}
+                    {saveLoading ? '…' : 'Save'}
                   </button>
-                  <button onClick={() => setShowSaveInput(false)} className="btn-secondary px-2">
+                  <button onClick={() => setShowSaveInput(false)} className="btn-icon">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -599,87 +643,93 @@ export default function SetPage() {
                   className="btn-secondary flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  Lưu Set
+                  Save Set
                 </button>
               )}
             </>
           )}
         </div>
 
-        {/* ── Paste hint — full-width bottom row ───────── */}
         {selectedChar && (
-          <p className="w-full text-xs text-ww-muted/50 text-right -mt-1">
-            <kbd className="bg-ww-border/60 text-ww-muted rounded px-1 py-0.5 font-mono text-[10px]">Ctrl+V</kbd>
-            {' '}paste → slot tiếp theo
+          <p className="w-full text-[10px] font-display uppercase tracking-wider text-ww-muted/50 text-right -mt-1">
+            <kbd className="bg-ww-border-glow text-ww-muted rounded px-1.5 py-0.5 font-mono text-[10px]">Ctrl+V</kbd>
+            {' '}paste advances target slot
           </p>
         )}
-      </div>
+      </section>
 
       {/* Load panel */}
       {showLoadPanel && (
-        <div className="card space-y-3">
+        <section className="panel-tech p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-ww-accent flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" /> Sets đã lưu
-              <span className="text-ww-muted font-normal normal-case tracking-normal text-xs">
-                ({savedSets.length})
-              </span>
+            <h3 className="section-label flex items-center gap-2">
+              <FolderOpen className="w-4 h-4" /> Saved Sets
+              <span className="text-ww-muted ml-2 normal-case tracking-normal">({savedSets.length})</span>
             </h3>
-            <button onClick={() => setShowLoadPanel(false)} className="text-ww-muted hover:text-ww-text">
+            <button onClick={() => setShowLoadPanel(false)} className="text-ww-muted hover:text-ww-cyan">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {savedSets.length === 0 ? (
-            <p className="text-ww-muted text-sm text-center py-4">Chưa có set nào được lưu</p>
+            <p className="text-ww-muted text-sm text-center py-4 font-display uppercase tracking-wider">
+              No saved sets yet
+            </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
-              {savedSets.map(s => (
-                <div
-                  key={s.id}
-                  className="flex flex-col gap-2 p-3 rounded-lg bg-ww-bg border border-ww-border/40 hover:border-ww-accent/30 transition-colors"
-                >
-                  {/* Name + delete */}
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-ww-text truncate leading-tight">{s.name}</p>
-                      <p className="text-[11px] text-ww-muted truncate mt-0.5">
-                        {s.character_name ?? 'Unknown'} · ER {s.total_er ?? '?'}%
-                      </p>
+              {savedSets.map(s => {
+                const setColor = s.set_score != null ? TIER_COLOR[getTierLabel(s.set_score)] ?? '#67e8f9' : '#94a3b8'
+                return (
+                  <div
+                    key={s.id}
+                    className="flex flex-col gap-2 p-3 rounded-md bg-ww-bg-deep/60 border border-ww-border hover:border-ww-cyan/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="min-w-0">
+                        <p className="font-display font-semibold text-sm text-ww-text truncate leading-tight tracking-wide">{s.name}</p>
+                        <p className="text-[11px] text-ww-muted truncate mt-0.5 font-display uppercase tracking-wider">
+                          {s.character_name ?? 'Unknown'} · ER {s.total_er ?? '?'}%
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSet(s.id, s.name)}
+                        className="text-ww-muted/40 hover:text-red-400 transition-colors p-0.5 shrink-0 mt-0.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleDeleteSet(s.id, s.name)}
-                      className="text-ww-muted/40 hover:text-red-400 transition-colors p-0.5 shrink-0 mt-0.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
 
-                  {/* Score badge + Load button */}
-                  <div className="flex items-center justify-between gap-2 mt-auto">
-                    {s.set_score != null ? (
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none ${getTierClass(getTierLabel(s.set_score))}`}>
-                        {s.set_tier} · {s.set_score.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-ww-muted/50">unscored</span>
-                    )}
-                    <button
-                      onClick={() => handleLoadSet(s)}
-                      className="btn-primary text-xs px-2.5 py-1 leading-none shrink-0"
-                    >
-                      Load
-                    </button>
+                    <div className="flex items-center justify-between gap-2 mt-auto">
+                      {s.set_score != null ? (
+                        <span
+                          className="readout text-[10px] font-display font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none"
+                          style={{ color: setColor, borderColor: `${setColor}66`, background: `${setColor}15` }}
+                        >
+                          {s.set_tier} · {s.set_score.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-ww-muted/50 font-display uppercase tracking-wider">unscored</span>
+                      )}
+                      <button
+                        onClick={() => handleLoadSet(s)}
+                        className="btn-primary text-[10px] px-3 py-1 leading-none shrink-0"
+                      >
+                        Load
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
-        </div>
+        </section>
       )}
 
+      {/* Set summary */}
+      <SetSummary slots={slots} charName={selectedChar?.name ?? null} />
+
       {/* 5 echo slots */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         {slots.map((slot, idx) => (
           <EchoSlot
             key={idx}
@@ -694,12 +744,12 @@ export default function SetPage() {
         ))}
       </div>
 
-      {/* Set summary */}
-      <SetSummary slots={slots} charName={selectedChar?.name ?? null} />
-
       {!selectedChar && (
-        <div className="card text-center py-12">
-          <p className="text-ww-muted">Chọn Resonator để bắt đầu nhập echo set</p>
+        <div className="panel-tech text-center py-12">
+          <div className="mx-auto w-12 h-12 mb-3 rounded-md border border-ww-cyan/40 bg-ww-cyan/5 flex items-center justify-center text-ww-cyan animate-pulse-glow">
+            ◆
+          </div>
+          <p className="text-ww-muted font-display uppercase tracking-[0.15em]">Select a Resonator to begin set calibration</p>
         </div>
       )}
     </div>

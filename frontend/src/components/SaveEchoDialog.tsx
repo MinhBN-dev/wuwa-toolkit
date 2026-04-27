@@ -31,7 +31,6 @@ export default function SaveEchoDialog({
 }: Props) {
   const [form, setForm] = useState<SaveEchoData>(initial)
 
-  // Reset form when dialog opens with new data
   useEffect(() => {
     if (open) setForm(initial)
   }, [open, initial])
@@ -48,12 +47,12 @@ export default function SaveEchoDialog({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-ww-surface border border-ww-border rounded-xl w-full max-w-md shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ww-bg-deep/80 backdrop-blur-sm animate-fade-up">
+      <div className="panel-tech w-full max-w-md shadow-panel">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ww-border">
-          <h2 className="font-semibold text-ww-text">Xác nhận lưu Echo</h2>
-          <button onClick={onClose} className="text-ww-muted hover:text-ww-text transition-colors">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dashed border-ww-border">
+          <h2 className="section-label">Confirm Save Echo</h2>
+          <button onClick={onClose} className="text-ww-muted hover:text-ww-cyan transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -61,19 +60,21 @@ export default function SaveEchoDialog({
         <div className="px-5 py-4 space-y-4">
           {/* Score summary */}
           {scoreResult && (
-            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-sm ${tierClass}`}>
-              <span className="font-bold">{tierLabel}</span>
+            <div className={`flex items-center gap-3 px-3 py-2 rounded-md border text-sm ${tierClass}`}>
+              <span className="font-display font-bold uppercase tracking-wider">{tierLabel}</span>
               <span className="text-ww-muted">·</span>
-              <span className="font-mono font-semibold">{scoreResult.score_percent.toFixed(3)}%</span>
-              <span className="text-ww-muted ml-auto text-xs">score</span>
+              <span className="readout font-semibold">{scoreResult.score_percent.toFixed(2)}%</span>
+              <span className="text-ww-muted ml-auto text-[10px] uppercase tracking-wider font-display">score</span>
             </div>
           )}
 
           {/* Echo name */}
           <div>
-            <label className="text-xs text-ww-muted block mb-1">Tên Echo</label>
+            <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+              Echo Name
+            </label>
             <input
-              className="input w-full"
+              className="input"
               value={form.echo_name}
               onChange={e => setForm(f => ({ ...f, echo_name: e.target.value }))}
               placeholder="e.g. Inferno Rider"
@@ -81,12 +82,13 @@ export default function SaveEchoDialog({
             />
           </div>
 
-          {/* Cost + Main stat type */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-ww-muted block mb-1">Cost</label>
+              <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+                Cost
+              </label>
               <select
-                className="select w-full"
+                className="select"
                 value={form.echo_cost}
                 onChange={e => setForm(f => ({ ...f, echo_cost: parseInt(e.target.value), main_stat_type: null }))}
               >
@@ -94,19 +96,21 @@ export default function SaveEchoDialog({
               </select>
             </div>
             <div>
-              <label className="text-xs text-ww-muted block mb-1">Main Stat</label>
+              <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+                Main Stat
+              </label>
               {mainStatOptions.length > 0 ? (
                 <select
-                  className="select w-full"
+                  className="select"
                   value={form.main_stat_type ?? ''}
                   onChange={e => setForm(f => ({ ...f, main_stat_type: e.target.value || null }))}
                 >
-                  <option value="">— chọn —</option>
+                  <option value="">— select —</option>
                   {mainStatOptions.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               ) : (
                 <input
-                  className="input w-full"
+                  className="input"
                   value={form.main_stat_type ?? ''}
                   onChange={e => setForm(f => ({ ...f, main_stat_type: e.target.value || null }))}
                   placeholder="e.g. Crit. DMG"
@@ -115,12 +119,13 @@ export default function SaveEchoDialog({
             </div>
           </div>
 
-          {/* Main stat value */}
           <div>
-            <label className="text-xs text-ww-muted block mb-1">Main Stat Value</label>
+            <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+              Main Stat Value
+            </label>
             <input
               type="number"
-              className="input w-full"
+              className="input readout"
               value={form.main_stat_value ?? ''}
               onChange={e => setForm(f => ({ ...f, main_stat_value: parseFloat(e.target.value) || null }))}
               placeholder="e.g. 44.0"
@@ -128,16 +133,16 @@ export default function SaveEchoDialog({
             />
           </div>
 
-          {/* Sub stats — read only summary */}
+          {/* Sub stats — read-only summary */}
           <div>
-            <label className="text-xs text-ww-muted block mb-1.5">
-              Sub Stats <span className="text-ww-border">({form.sub_stats.length})</span>
+            <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+              Sub Stats <span className="text-ww-border-glow">({form.sub_stats.length})</span>
             </label>
             <div className="space-y-1">
               {form.sub_stats.map((s, i) => (
-                <div key={i} className="flex justify-between text-xs px-2 py-1 bg-ww-bg rounded border border-ww-border">
+                <div key={i} className="flex justify-between text-xs px-2.5 py-1.5 rounded-md bg-ww-bg-deep/60 border border-ww-border">
                   <span className="text-ww-muted">{s.type}</span>
-                  <span className="font-mono text-ww-text font-medium">{s.value}</span>
+                  <span className="readout text-ww-text">{s.value}</span>
                 </div>
               ))}
             </div>
@@ -145,9 +150,9 @@ export default function SaveEchoDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-5 py-4 border-t border-ww-border">
+        <div className="flex gap-2 px-5 py-4 border-t border-dashed border-ww-border">
           <button onClick={onClose} className="btn-secondary flex-1">
-            Huỷ
+            Cancel
           </button>
           <button
             onClick={handleConfirm}
@@ -155,7 +160,7 @@ export default function SaveEchoDialog({
             className="btn-primary flex-1 flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
-            {isPending ? 'Đang lưu...' : 'Lưu Echo'}
+            {isPending ? 'Saving' : 'Save Echo'}
           </button>
         </div>
       </div>
