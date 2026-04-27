@@ -23,18 +23,18 @@ frontend/
     │   └── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
     ├── components/
     │   ├── Logo.tsx           SVG hexagonal "O" mark — gradient stroke + spinning diamond center
-    │   ├── EchoUploader.tsx   Drag-and-drop image upload → gọi OCR API (uses .dropzone-frame)
-    │   ├── StatsEditor.tsx    Edit sub-stats với roll quality bars; prop `hideMeta` ẩn name/cost
-    │   ├── ScoreDisplay.tsx   Score result: big tier-colored number, glow bar, stat breakdown, tier ladder
-    │   ├── EchoCard.tsx       Grid card cho saved echo (tier label badge, stats, delete)
-    │   ├── ErInfo.tsx         Hiển thị ER Target + ER Importance khi chọn nhân vật
-    │   ├── SaveEchoDialog.tsx Modal xác nhận trước khi lưu: name/cost/main stat editable, sub stats + score readonly
-    │   └── EvcBanner.tsx      Banner vàng thông báo EVC update (localStorage + server ack)
+    │   ├── EchoUploader.tsx   Drag-and-drop image upload → OCR API; uses .dropzone-frame, rotating diamond icon
+    │   ├── StatsEditor.tsx    Edit sub-stats với panel-tech sections; weight badges + RollBar with tier-color glow
+    │   ├── ScoreDisplay.tsx   Big tier-colored 5xl readout + glow shimmer bar + stat breakdown + dim/lit tier ladder
+    │   ├── EchoCard.tsx       Saved-echo grid card — element-tinted cost badge, tier-glow accent strip, hover element halo
+    │   ├── ErInfo.tsx         ER Target + ER Importance chip (Min/Norm/Vital/Max → muted/cyan/yellow/orange glow)
+    │   ├── SaveEchoDialog.tsx panel-tech frosted modal, dashed-border dividers, tier-colored score chip
+    │   └── EvcBanner.tsx      Backdrop-blur yellow banner with gradient hairlines, ack to localStorage + server
     └── pages/
-        ├── Home.tsx         Upload + edit + calculate + save echo lẻ
-        ├── Set.tsx          Full set 5 slots: OCR, paste target, score all, save/load set
-        ├── Saved.tsx        Gallery echoes + saved sets: filter by EVC tier, delete
-        └── Characters.tsx   Character grid: icon, element, build status (server-synced)
+        ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
+        ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
+        ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
+        └── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
 ```
 
 ## Routes
@@ -96,6 +96,19 @@ EVC labels thay thế S/A/B/C/D:
 <  44 → Unbuilt         (màu tier-D)
 ```
 `getBarColor(score)` dùng label mapping qua `TIER_BAR_COLOR` — nhất quán với `getTierClass()`
+
+## Design Language (per-page treatments)
+
+Each page uses the same shared classes (panel-tech / section-label / readout / btn-*) but has its own visual signature:
+
+| Page | Hero icon | Distinctive treatment |
+|---|---|---|
+| `/` Home | (none) | 2-col workspace; element-colored char chip top-right; big tier-colored score number with glow |
+| `/set` Full Set | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo |
+| `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
+| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait has conic-gradient element ring + status-colored circular border |
+
+All four pages mount with `animate-fade-up`. Score reveals use `animate-count-in`. Empty states use `◆` glyph in a cyan ring with `animate-pulse-glow`.
 
 ## EvcBanner (components/EvcBanner.tsx)
 

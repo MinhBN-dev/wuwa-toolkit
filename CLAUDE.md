@@ -84,6 +84,8 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **EVC banner fetched once per session** — `staleTime: Infinity`. Acknowledge writes both `evc_status.json` (server volume) and `localStorage` (client).
 
+- **Design system** — WuWa-inspired tech-arcane theme. Rajdhani for display/UI/numbers (`font-display`, `.readout`), Inter for body. Reusable classes in `index.css`: `.panel-tech` (glass + clip-path corner cuts), `.section-label`, `.btn-primary` / `.btn-secondary` (slant clip-path + glow), `.dropzone-frame`. Don't introduce per-component custom panel styles — extend the design system in `index.css` instead. Full reference: `.agent/FRONTEND.md`.
+
 - **No migrations framework** — schema changes = manual `ALTER TABLE` in psql, update SQLAlchemy model, rebuild backend container.
 
 - **Adding a new character** — entry in `data/game_data.py → CHARACTER_DATA` (weights + er_target + er_imp + er_imp_label) and `CHARACTER_LIST`. DB re-seeds automatically on next restart if `characters` table is empty.

@@ -18,7 +18,7 @@ A web application for scoring, managing, and analyzing Echoes in **Wuthering Wav
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.12 · FastAPI · SQLAlchemy (async) · asyncpg |
-| Frontend | React 18 · TypeScript · Vite · TailwindCSS v3 |
+| Frontend | React 18 · TypeScript · Vite · TailwindCSS v3 · Rajdhani + Inter (Google Fonts) |
 | Database | PostgreSQL 16 |
 | OCR | EasyOCR (local, primary) · Google Gemini · OpenAI · Anthropic (fallbacks) |
 | Scoring | EVC 3.2 formula |
