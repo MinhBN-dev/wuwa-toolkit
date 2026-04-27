@@ -22,18 +22,19 @@ frontend/
     │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
     │   └── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
     ├── components/
-    │   ├── EchoUploader.tsx   Drag-and-drop image upload → gọi OCR API
-    │   ├── StatsEditor.tsx    Edit sub-stats với roll quality bars; prop `hideMeta` ẩn name/cost
-    │   ├── ScoreDisplay.tsx   Score result: tier label box, percent bar, stat breakdown
-    │   ├── EchoCard.tsx       Grid card cho saved echo (tier label badge, stats, delete)
-    │   ├── ErInfo.tsx         Hiển thị ER Target + ER Importance khi chọn nhân vật
-    │   ├── SaveEchoDialog.tsx Modal xác nhận trước khi lưu: name/cost/main stat editable, sub stats + score readonly
-    │   └── EvcBanner.tsx      Banner vàng thông báo EVC update (localStorage + server ack)
+    │   ├── Logo.tsx           SVG hexagonal "O" mark — gradient stroke + spinning diamond center
+    │   ├── EchoUploader.tsx   Drag-and-drop image upload → OCR API; uses .dropzone-frame, rotating diamond icon
+    │   ├── StatsEditor.tsx    Edit sub-stats với panel-tech sections; weight badges + RollBar with tier-color glow
+    │   ├── ScoreDisplay.tsx   Big tier-colored 5xl readout + glow shimmer bar + stat breakdown + dim/lit tier ladder
+    │   ├── EchoCard.tsx       Saved-echo grid card — element-tinted cost badge, tier-glow accent strip, hover element halo
+    │   ├── ErInfo.tsx         ER Target + ER Importance chip (Min/Norm/Vital/Max → muted/cyan/yellow/orange glow)
+    │   ├── SaveEchoDialog.tsx panel-tech frosted modal, dashed-border dividers, tier-colored score chip
+    │   └── EvcBanner.tsx      Backdrop-blur yellow banner with gradient hairlines, ack to localStorage + server
     └── pages/
-        ├── Home.tsx         Upload + edit + calculate + save echo lẻ
-        ├── Set.tsx          Full set 5 slots: OCR, paste target, score all, save/load set
-        ├── Saved.tsx        Gallery echoes + saved sets: filter by EVC tier, delete
-        └── Characters.tsx   Character grid: icon, element, build status (server-synced)
+        ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
+        ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
+        ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
+        └── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
 ```
 
 ## Routes
@@ -96,6 +97,19 @@ EVC labels thay thế S/A/B/C/D:
 ```
 `getBarColor(score)` dùng label mapping qua `TIER_BAR_COLOR` — nhất quán với `getTierClass()`
 
+## Design Language (per-page treatments)
+
+Each page uses the same shared classes (panel-tech / section-label / readout / btn-*) but has its own visual signature:
+
+| Page | Hero icon | Distinctive treatment |
+|---|---|---|
+| `/` Home | (none) | 2-col workspace; element-colored char chip top-right; big tier-colored score number with glow |
+| `/set` Full Set | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo |
+| `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
+| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait has conic-gradient element ring + status-colored circular border |
+
+All four pages mount with `animate-fade-up`. Score reveals use `animate-count-in`. Empty states use `◆` glyph in a cyan ring with `animate-pulse-glow`.
+
 ## EvcBanner (components/EvcBanner.tsx)
 
 - Query `evc-status` với `staleTime: Infinity` — chỉ fetch 1 lần/session
@@ -120,15 +134,37 @@ saveName: string
 ## Colors (Tailwind custom)
 
 ### Background / Surface
-- `bg-ww-bg` #0d1117 | `bg-ww-surface` #161b22 | `border-ww-border` #30363d
-- `text-ww-accent` #e8a045 (gold) | `text-ww-muted` #8b949e
+- `bg-ww-bg-deep` #070912 | `bg-ww-bg` #0a0e1a | `bg-ww-surface` #161b22 | `bg-ww-surface-2` #1c2230
+- `border-ww-border` #2a3142 | `border-ww-border-glow` #3a4256
+- `text-ww-text` #e6e8ee | `text-ww-muted` #8b949e
+
+### Accents
+- `text-ww-accent` #e8a045 (gold) | `text-ww-cyan` #67e8f9 | `text-ww-purple` #a78bfa
 
 ### Tiers
 - `text-tier-S` orange #ff9500 | `text-tier-A` purple #c084fc
 - `text-tier-B` blue #60a5fa | `text-tier-C` green #4ade80 | `text-tier-D` slate #94a3b8
 
+### Element (Glacio/Fusion/Electro/Aero/Spectro/Havoc)
+Defined in `tailwind.config.ts`; also inlined in Home.tsx for runtime tag styling.
+
 ## Component Classes (index.css)
-- `.card` = bg-ww-surface + border + rounded + p-4
-- `.btn-primary` = gold bg, black text
-- `.btn-secondary` = border bg, white text
-- `.input` / `.select` = dark bg, border, focus accent
+
+Design system: **WuWa-inspired tech-arcane** — dark navy base, glassmorphism panels, cyan-purple-gold accents, Rajdhani display font + Inter body.
+
+- `.glass` / `.glass-strong` — frosted-glass panels (backdrop-blur + subtle border + shadow)
+- `.panel-tech` — `.glass` + diagonal corner cuts (clip-path) + cyan corner ticks (::before/::after)
+- `.section-label` — small caps cyan headings with leading hairline accent
+- `.btn-primary` — gold gradient with diagonal slant clip-path + gold glow
+- `.btn-secondary` — bordered, hover-glow cyan, slant clip-path
+- `.btn-icon` — small square reset/utility button
+- `.btn-danger` — dark-red bordered (used in dialogs)
+- `.input` / `.select` — dark bg, focus glow cyan, Rajdhani font
+- `.dropzone-frame` / `.dropzone-active` — dashed gradient border with hover/active glow
+- `.readout` — Rajdhani tabular-nums for stat numbers
+- `.shimmer-line` — animated cyan gradient sweep (used on score bar)
+- `.text-glow-cyan` / `.text-glow-gold` — text-shadow utilities
+- `.above-stars` — z-index helper to sit above body::before starfield overlay
+- Animations: `animate-fade-up`, `animate-count-in`, `animate-pulse-glow`, `animate-shimmer`, `animate-spin-slow`
+
+Fonts loaded via Google Fonts in `index.html`: Rajdhani (400/500/600/700) + Inter (400/500/600).

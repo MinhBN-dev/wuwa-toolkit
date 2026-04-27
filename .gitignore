@@ -42,3 +42,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local-only reference folders
+pictures/

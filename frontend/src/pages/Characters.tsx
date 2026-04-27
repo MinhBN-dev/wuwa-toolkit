@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, X, Users } from 'lucide-react'
 import { getCharacters, getCharacterProfiles, upsertCharacterProfile, bulkUpsertCharacterProfiles } from '../services/api'
 import type { Character } from '../types/echo'
 import {
@@ -13,16 +13,21 @@ import {
   type BuildStatus,
 } from '../utils/character'
 
-const ELEMENT_COLORS: Record<string, string> = {
-  Glacio:  'text-sky-300  border-sky-500/40  bg-sky-500/10',
-  Fusion:  'text-orange-300 border-orange-500/40 bg-orange-500/10',
-  Electro: 'text-purple-300 border-purple-500/40 bg-purple-500/10',
-  Aero:    'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
-  Spectro: 'text-yellow-200 border-yellow-400/40 bg-yellow-400/10',
-  Havoc:   'text-rose-300  border-rose-500/40  bg-rose-500/10',
+const ELEMENT_COLOR: Record<string, string> = {
+  Glacio:  '#7dd3fc',
+  Fusion:  '#f97316',
+  Electro: '#a855f7',
+  Aero:    '#34d399',
+  Spectro: '#facc15',
+  Havoc:   '#e879f9',
 }
 
-/** Deduplicate characters by base name, keeping the first entry per base name. */
+const STATUS_COLOR: Record<BuildStatus, string> = {
+  built:     '#60a5fa',
+  building:  '#facc15',
+  not_built: '#475569',
+}
+
 function deduplicateByBase(characters: Character[]): Character[] {
   const seen = new Set<string>()
   return characters.filter(c => {
@@ -43,7 +48,7 @@ const FILTER_STATUSES: Array<{ value: BuildStatus | 'all'; label: string }> = [
 
 export default function CharactersPage() {
   const queryClient = useQueryClient()
-  const syncedRef = useRef(false) // ensure one-time localStorage migration
+  const syncedRef = useRef(false)
 
   const { data: characters = [] } = useQuery({
     queryKey: ['characters'],
@@ -55,7 +60,6 @@ export default function CharactersPage() {
     queryFn: getCharacterProfiles,
   })
 
-  // Derive statuses + notes from server profiles (source of truth)
   const statuses: Record<string, BuildStatus> = {}
   const notes: Record<string, string> = {}
   for (const [name, p] of Object.entries(serverProfiles)) {
@@ -63,18 +67,16 @@ export default function CharactersPage() {
     if (p.notes) notes[name] = p.notes
   }
 
-  // ── One-time migration: push localStorage data to server if server is empty ──
   useEffect(() => {
     if (!profilesLoaded || syncedRef.current) return
     syncedRef.current = true
 
     const serverHasData = Object.keys(serverProfiles).length > 0
-    if (serverHasData) return // server already has data, nothing to migrate
+    if (serverHasData) return
 
     const lsStatuses = loadBuildStatuses()
     const lsNotes = loadNotes()
 
-    // Collect all character names from both sources
     const allNames = new Set([...Object.keys(lsStatuses), ...Object.keys(lsNotes)])
     if (allNames.size === 0) return
 
@@ -138,139 +140,173 @@ export default function CharactersPage() {
     setEditingNote(null)
   }
 
-  // Summary counts
   const builtCount    = unique.filter(c => (statuses[getBaseName(c.name)] ?? 'not_built') === 'built').length
   const buildingCount = unique.filter(c => (statuses[getBaseName(c.name)] ?? 'not_built') === 'building').length
+  const notBuiltCount = unique.length - builtCount - buildingCount
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-      {/* Header + summary */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold text-ww-text">
-          Characters
-          <span className="text-ww-muted text-sm font-normal ml-2">({unique.length} total)</span>
-        </h2>
-        <div className="flex gap-3 text-sm">
-          <span className="text-tier-B font-medium">{builtCount} Built</span>
-          <span className="text-yellow-400 font-medium">{buildingCount} Building</span>
-          <span className="text-ww-muted">{unique.length - builtCount - buildingCount} Not Built</span>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 animate-fade-up">
+      {/* Hero */}
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <p className="section-label mb-1">Resonator Roster</p>
+          <h1 className="font-display font-bold text-3xl uppercase tracking-[0.15em] text-ww-text flex items-center gap-3">
+            <Users className="w-7 h-7 text-ww-cyan" />
+            <span>Resonator <span className="text-ww-cyan text-glow-cyan">Index</span></span>
+          </h1>
+          <p className="text-ww-muted text-sm mt-1">Track build status and personal notes per resonator.</p>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <Stat label="Total" value={unique.length} color="#67e8f9" />
+          <Stat label="Built" value={builtCount} color="#60a5fa" />
+          <Stat label="Building" value={buildingCount} color="#facc15" />
+          <Stat label="Pending" value={notBuiltCount} color="#8b949e" />
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card flex flex-wrap gap-3 items-center">
-        {/* Search */}
+      <section className="panel-tech p-4 flex flex-wrap gap-3 items-center">
         <input
           className="input flex-1 min-w-40"
-          placeholder="Search character..."
+          placeholder="Search resonator…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
 
-        {/* Element filter */}
         <div className="flex flex-wrap gap-1">
-          {FILTER_ELEMENTS.map(el => (
-            <button
-              key={el}
-              onClick={() => setFilterElement(el)}
-              className={`px-2 h-7 rounded text-xs font-semibold border transition-all ${
-                filterElement === el
-                  ? el === 'All'
-                    ? 'bg-ww-accent/20 border-ww-accent text-ww-accent'
-                    : ELEMENT_COLORS[el]
-                  : 'border-ww-border text-ww-muted hover:border-ww-accent/50'
-              }`}
-            >
-              {el}
-            </button>
-          ))}
+          {FILTER_ELEMENTS.map(el => {
+            const active = filterElement === el
+            const color = el === 'All' ? '#e8a045' : (ELEMENT_COLOR[el] ?? '#67e8f9')
+            return (
+              <button
+                key={el}
+                onClick={() => setFilterElement(el)}
+                className="px-2.5 h-7 rounded text-[10px] font-display font-bold uppercase tracking-wider border transition-all whitespace-nowrap"
+                style={
+                  active
+                    ? { color, background: `${color}15`, borderColor: `${color}66`, boxShadow: `0 0 10px ${color}50` }
+                    : { color: '#8b949e', borderColor: '#2a3142' }
+                }
+              >
+                {el}
+              </button>
+            )
+          })}
         </div>
 
-        {/* Status filter */}
         <div className="flex gap-1">
-          {FILTER_STATUSES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setFilterStatus(value)}
-              className={`px-2 h-7 rounded text-xs font-semibold border transition-all ${
-                filterStatus === value
-                  ? value === 'all'
-                    ? 'bg-ww-accent/20 border-ww-accent text-ww-accent'
-                    : value === 'built'
-                      ? 'bg-tier-B/20 border-tier-B text-tier-B'
-                      : value === 'building'
-                        ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
-                        : 'bg-ww-border/40 border-ww-border text-ww-muted'
-                  : 'border-ww-border text-ww-muted hover:border-ww-accent/50'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          {FILTER_STATUSES.map(({ value, label }) => {
+            const active = filterStatus === value
+            const color =
+              value === 'all' ? '#e8a045' :
+              value === 'built' ? STATUS_COLOR.built :
+              value === 'building' ? STATUS_COLOR.building :
+              STATUS_COLOR.not_built
+            return (
+              <button
+                key={value}
+                onClick={() => setFilterStatus(value)}
+                className="px-2.5 h-7 rounded text-[10px] font-display font-bold uppercase tracking-wider border transition-all"
+                style={
+                  active
+                    ? { color, background: `${color}15`, borderColor: `${color}66`, boxShadow: `0 0 10px ${color}50` }
+                    : { color: '#8b949e', borderColor: '#2a3142' }
+                }
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
-      </div>
+      </section>
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-ww-muted">No characters match the filter.</div>
+        <div className="panel-tech text-center py-16 text-ww-muted font-display uppercase tracking-wider">
+          No resonators match the filter.
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
           {filtered.map(c => {
             const base = getBaseName(c.name)
             const status = (statuses[base] ?? 'not_built') as BuildStatus
             const meta = BUILD_STATUS_META[status]
-            const elColor = ELEMENT_COLORS[c.element] ?? 'text-ww-muted border-ww-border'
+            const elColor = ELEMENT_COLOR[c.element] ?? '#67e8f9'
+            const stColor = STATUS_COLOR[status]
             const note = notes[base] ?? ''
             const isEditing = editingNote === base
 
             return (
               <div
                 key={base}
-                className="card p-3 flex flex-col items-center gap-2 hover:border-ww-accent/50 transition-all"
+                className="panel-tech p-3 flex flex-col items-center gap-2 transition-all hover:-translate-y-0.5 group"
+                style={{
+                  boxShadow: status === 'built'
+                    ? `0 4px 16px rgba(96,165,250,0.15)`
+                    : status === 'building'
+                      ? `0 4px 16px rgba(250,204,21,0.12)`
+                      : '0 4px 12px rgba(0,0,0,0.25)',
+                }}
               >
-                {/* Icon — click to cycle status */}
-                <div
-                  className={`w-16 h-16 rounded-full overflow-hidden border-2 ${meta.color} transition-all cursor-pointer select-none`}
-                  onClick={() => cycleStatus(base)}
-                  title={`Click to cycle: ${meta.label}`}
-                >
-                  <img
-                    src={getCharacterIcon(c.name)}
-                    alt={base}
-                    className="w-full h-full object-cover"
-                    onError={e => {
-                      const t = e.currentTarget
-                      t.style.display = 'none'
-                      t.parentElement!.classList.add('flex', 'items-center', 'justify-center', 'bg-ww-border', 'text-ww-muted', 'text-lg', 'font-bold')
-                      t.parentElement!.textContent = base[0]
+                {/* Portrait with element ring */}
+                <div className="relative">
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: `conic-gradient(${elColor} 0deg, ${elColor}55 120deg, transparent 240deg, ${elColor} 360deg)`,
+                      padding: '2px',
+                      filter: 'blur(0.5px)',
                     }}
                   />
+                  <div
+                    className="relative w-16 h-16 rounded-full overflow-hidden cursor-pointer select-none transition-transform group-hover:scale-105"
+                    style={{ border: `2px solid ${stColor}`, boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.5), 0 0 12px ${stColor}40` }}
+                    onClick={() => cycleStatus(base)}
+                    title={`Click to cycle: ${meta.label}`}
+                  >
+                    <img
+                      src={getCharacterIcon(c.name)}
+                      alt={base}
+                      className="w-full h-full object-cover"
+                      onError={e => {
+                        const t = e.currentTarget
+                        t.style.display = 'none'
+                        t.parentElement!.classList.add('flex', 'items-center', 'justify-center', 'bg-ww-bg-deep', 'text-ww-cyan', 'text-lg', 'font-bold', 'font-display')
+                        t.parentElement!.textContent = base[0]
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Name */}
-                <span className="text-xs font-medium text-ww-text text-center leading-tight line-clamp-2 select-none">
+                <span className="font-display text-xs font-medium text-ww-text text-center leading-tight line-clamp-2 select-none tracking-wide">
                   {base}
                 </span>
 
                 {/* Element + status badges */}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${elColor}`}>
+                <span
+                  className="text-[10px] font-display uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none"
+                  style={{ color: elColor, borderColor: `${elColor}55`, background: `${elColor}10` }}
+                >
                   {c.element}
                 </span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold cursor-pointer select-none ${meta.color}`}
+                  className="text-[10px] font-display font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none cursor-pointer select-none"
+                  style={{ color: stColor, borderColor: `${stColor}66`, background: `${stColor}15` }}
                   onClick={() => cycleStatus(base)}
                 >
                   {meta.label}
                 </span>
 
-                {/* Note area */}
+                {/* Note */}
                 {isEditing ? (
                   <div className="w-full" onClick={e => e.stopPropagation()}>
                     <textarea
                       autoFocus
                       rows={3}
                       className="input w-full text-[11px] resize-none"
-                      placeholder="Notes... (e.g. need better crit rate echo)"
+                      placeholder="Notes…"
                       value={draftNote}
                       onChange={e => setDraftNote(e.target.value)}
                       onKeyDown={e => {
@@ -280,11 +316,11 @@ export default function CharactersPage() {
                     />
                     <div className="flex gap-1 mt-1">
                       <button
-                        className="btn-primary flex-1 text-[10px] py-0.5"
+                        className="btn-primary flex-1 text-[10px] py-0.5 px-2"
                         onClick={() => commitNote(base)}
                       >Save</button>
                       <button
-                        className="btn-secondary px-2 text-[10px] py-0.5"
+                        className="btn-icon p-1"
                         onClick={e => { e.stopPropagation(); setEditingNote(null) }}
                       ><X className="w-3 h-3" /></button>
                     </div>
@@ -293,14 +329,14 @@ export default function CharactersPage() {
                   <button
                     className={`w-full flex items-start gap-1 text-left rounded px-1.5 py-1 text-[10px] leading-snug border transition-all ${
                       note
-                        ? 'border-ww-accent/30 text-ww-muted hover:border-ww-accent/60'
-                        : 'border-dashed border-ww-border text-ww-border hover:border-ww-accent/40 hover:text-ww-muted'
+                        ? 'border-ww-cyan/30 text-ww-muted hover:border-ww-cyan/60 hover:text-ww-text'
+                        : 'border-dashed border-ww-border text-ww-border hover:border-ww-cyan/40 hover:text-ww-muted'
                     }`}
                     onClick={e => openNote(e, base)}
                     title="Add / edit note"
                   >
                     <Pencil className="w-2.5 h-2.5 mt-0.5 shrink-0" />
-                    <span className="line-clamp-2">{note || 'Add note...'}</span>
+                    <span className="line-clamp-2">{note || 'Add note…'}</span>
                   </button>
                 )}
               </div>
@@ -309,9 +345,21 @@ export default function CharactersPage() {
         </div>
       )}
 
-      <p className="text-xs text-ww-muted text-center">
-        Click icon or status badge to cycle build status · Click note area to add/edit memo · Synced to server
+      <p className="text-[10px] text-ww-muted/60 text-center font-display uppercase tracking-[0.18em]">
+        Click portrait or status badge to cycle · Click note area to edit · Server-synced
       </p>
+    </div>
+  )
+}
+
+function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-md border"
+      style={{ borderColor: `${color}40`, background: `${color}08` }}
+    >
+      <span className="readout text-lg" style={{ color }}>{value}</span>
+      <span className="font-display uppercase tracking-wider text-[10px] text-ww-muted">{label}</span>
     </div>
   )
 }

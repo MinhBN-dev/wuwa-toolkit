@@ -78,10 +78,10 @@ export default function EchoUploader({ onExtracted, blockedReason }: Props) {
   // ── Blocked state ────────────────────────────────────────────────────────────
   if (blockedReason) {
     return (
-      <div className="border-2 border-dashed border-ww-border rounded-xl p-6 text-center opacity-60">
+      <div className="dropzone-frame p-6 text-center opacity-50">
         <div className="flex flex-col items-center gap-2">
-          <Lock className="w-8 h-8 text-ww-muted" />
-          <p className="text-ww-muted text-sm">{blockedReason}</p>
+          <Lock className="w-7 h-7 text-ww-muted" />
+          <p className="text-ww-muted text-sm font-display tracking-wide">{blockedReason}</p>
         </div>
       </div>
     )
@@ -91,22 +91,22 @@ export default function EchoUploader({ onExtracted, blockedReason }: Props) {
   if (preview) {
     return (
       <div className="space-y-2" ref={containerRef}>
-        <div className="relative rounded-lg overflow-hidden border border-ww-border">
-          <img src={preview} alt="Echo preview" className="w-full object-contain bg-black/20" />
+        <div className="relative rounded-lg overflow-hidden border border-ww-border-glow shadow-panel">
+          <img src={preview} alt="Echo preview" className="w-full object-contain bg-black/30" />
           {loading && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-              <Loader2 className="w-6 h-6 text-ww-accent animate-spin" />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-ww-cyan animate-spin" />
             </div>
           )}
         </div>
         {!loading && (
           <div
             {...getRootProps()}
-            className="flex items-center justify-center gap-2 py-1.5 rounded-lg border border-dashed border-ww-border text-ww-muted hover:border-ww-accent/50 hover:text-ww-text cursor-pointer transition-all text-xs"
+            className="dropzone-frame flex items-center justify-center gap-2 py-2 px-3 cursor-pointer text-xs text-ww-muted hover:text-ww-cyan font-display uppercase tracking-wider"
           >
             <input {...getInputProps()} />
             <Upload className="w-3 h-3" />
-            <span>Change image or paste new (Ctrl+V)</span>
+            <span>Change · paste new (Ctrl+V)</span>
           </div>
         )}
       </div>
@@ -114,35 +114,34 @@ export default function EchoUploader({ onExtracted, blockedReason }: Props) {
   }
 
   // ── Full drop zone ────────────────────────────────────────────────────────────
-  const borderClass = pasteHighlight
-    ? 'border-ww-accent bg-ww-accent/10'
-    : isDragActive
-      ? 'border-ww-accent bg-ww-accent/5'
-      : 'border-ww-border hover:border-ww-accent/50 hover:bg-ww-surface/50'
+  const stateClass = (pasteHighlight || isDragActive) ? 'dropzone-active' : ''
 
   return (
     <div className="space-y-3" ref={containerRef}>
       <div
         {...getRootProps()}
         className={`
-          border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-150
-          ${borderClass}
+          dropzone-frame p-7 text-center cursor-pointer
+          ${stateClass}
           ${loading ? 'opacity-60 cursor-not-allowed' : ''}
         `}
       >
         <input {...getInputProps()} />
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-3">
           {loading ? (
-            <Loader2 className="w-8 h-8 text-ww-accent animate-spin" />
+            <Loader2 className="w-9 h-9 text-ww-cyan animate-spin" />
           ) : (
-            <Upload className="w-8 h-8 text-ww-muted" />
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <div className="absolute inset-0 border border-ww-cyan/30 rotate-45" />
+              <Upload className="w-5 h-5 text-ww-cyan relative" />
+            </div>
           )}
           <div>
-            <p className="text-ww-text font-medium text-sm">
-              {loading ? 'Extracting stats...' : 'Drop echo screenshot here'}
+            <p className="text-ww-text font-display font-semibold uppercase tracking-[0.15em] text-sm">
+              {loading ? 'Extracting Stats' : 'Drop Echo Screenshot'}
             </p>
-            <p className="text-ww-muted text-xs mt-0.5">
-              {loading ? 'AI is reading your echo' : 'or click to browse · JPG, PNG, WEBP'}
+            <p className="text-ww-muted text-xs mt-1">
+              {loading ? 'OCR pipeline reading image…' : 'Click to browse · JPG · PNG · WEBP'}
             </p>
           </div>
         </div>
@@ -151,15 +150,15 @@ export default function EchoUploader({ onExtracted, blockedReason }: Props) {
       {/* Paste hint */}
       {!loading && (
         <div className={`
-          flex items-center justify-center gap-2 py-1.5 rounded-lg border transition-all duration-150 text-xs
+          flex items-center justify-center gap-2 py-1.5 px-3 rounded-md border transition-all duration-150 text-[11px] font-display uppercase tracking-wider
           ${pasteHighlight
-            ? 'border-ww-accent text-ww-accent bg-ww-accent/10'
+            ? 'border-ww-accent text-ww-accent bg-ww-accent/10 shadow-glow-gold'
             : 'border-ww-border text-ww-muted'}
         `}>
           <Clipboard className="w-3 h-3" />
           <span>
-            Paste từ clipboard{' '}
-            <kbd className="bg-ww-border text-ww-text text-xs px-1.5 py-0.5 rounded font-mono">Ctrl+V</kbd>
+            Paste from clipboard{' '}
+            <kbd className="bg-ww-border-glow text-ww-text text-[10px] px-1.5 py-0.5 rounded font-mono ml-1">Ctrl+V</kbd>
           </span>
         </div>
       )}

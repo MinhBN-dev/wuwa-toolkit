@@ -32,22 +32,24 @@ export default function EvcBanner() {
 
   if (!data?.has_update) return null
 
-  // Hide if already acknowledged in this browser (localStorage)
   const localAck = getLocalAck()
   if (data.latest_date && localAck && localAck >= data.latest_date) return null
 
   return (
-    <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2">
-      <div className="max-w-7xl mx-auto flex items-start gap-3">
+    <div className="relative border-b border-yellow-500/20 bg-yellow-500/[0.06] backdrop-blur-md">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-yellow-400/30 to-transparent" />
+
+      <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-start gap-3">
         <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <span className="text-yellow-300 font-semibold text-sm">
-            EVC đã cập nhật ({data.latest_date_display})
+          <span className="font-display uppercase tracking-[0.18em] text-yellow-300 font-semibold text-xs">
+            EVC update · {data.latest_date_display}
           </span>
           {data.latest_entries.length > 0 && (
-            <ul className="mt-0.5 space-y-0.5">
+            <ul className="mt-1 space-y-0.5">
               {data.latest_entries.map((e, i) => (
-                <li key={i} className="text-xs text-yellow-200/80">· {e}</li>
+                <li key={i} className="text-xs text-yellow-100/80">· {e}</li>
               ))}
             </ul>
           )}
@@ -55,15 +57,15 @@ export default function EvcBanner() {
             href="https://www.echovaluecalc.com/logs"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 mt-1 transition-colors"
+            className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider font-display text-yellow-400 hover:text-yellow-200 mt-1 transition-colors"
           >
-            Xem changelog đầy đủ <ExternalLink className="w-3 h-3" />
+            View full changelog <ExternalLink className="w-3 h-3" />
           </a>
         </div>
         <button
           onClick={() => data.latest_date && ack.mutate(data.latest_date)}
-          className="text-yellow-400/60 hover:text-yellow-300 transition-colors shrink-0 flex items-center gap-1 text-xs"
-          title="Đánh dấu đã xem"
+          className="text-yellow-400/60 hover:text-yellow-200 transition-colors shrink-0"
+          title="Mark as seen"
         >
           <X className="w-4 h-4" />
         </button>

@@ -3,50 +3,252 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    /* fallback color sits on html so body's pseudo-elements can use negative z-index
+       safely — pseudo with z-index < 0 is hidden by body's own background-color */
+    background-color: #070912;
+  }
+
   body {
-    @apply bg-ww-bg text-ww-text;
+    @apply text-ww-text;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: transparent;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Background image — Tacet Discord splash, blurred + dimmed for readability.
+     Filter is applied here only, so blur doesn't bleed into the overlay gradients
+     or content. transform scale hides blur-edge artifacts. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('/bg-tacet.jpg') center 55% / cover no-repeat;
+    filter: blur(1.5px) brightness(0.5) saturate(1.2);
+    transform: scale(1.05);
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  /* Color/dim overlay over the image — locks in text legibility regardless of where
+     the bright "eye" of the discord lands, plus the existing tints + starfield. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse 70% 55% at 50% 50%, rgba(7, 9, 18, 0.35) 0%, rgba(7, 9, 18, 0.7) 100%),
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(103, 232, 249, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 100%, rgba(167, 139, 250, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 5% 80%, rgba(232, 160, 69, 0.04) 0%, transparent 60%),
+      /* tiny twinkle stars */
+      radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.35), transparent),
+      radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.25), transparent),
+      radial-gradient(1px 1px at 80% 20%, rgba(103, 232, 249, 0.4), transparent),
+      radial-gradient(1px 1px at 30% 80%, rgba(167, 139, 250, 0.35), transparent),
+      radial-gradient(1px 1px at 90% 60%, rgba(255, 255, 255, 0.25), transparent);
+    background-size: auto, auto, auto, auto, 600px 600px, 600px 600px, 600px 600px, 600px 600px, 600px 600px;
+    pointer-events: none;
+    z-index: -1;
   }
 
   ::-webkit-scrollbar {
     @apply w-1.5;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-ww-bg;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     @apply bg-ww-border rounded-full;
   }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ww-border-glow;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Rajdhani', system-ui, sans-serif;
+    letter-spacing: 0.02em;
+  }
 }
 
 @layer components {
-  .card {
-    @apply bg-ww-surface border border-ww-border rounded-xl p-4;
+  /* ─── Glass panels ───────────────────────────────────────────────────────── */
+  .glass {
+    background: linear-gradient(135deg, rgba(28, 34, 48, 0.65) 0%, rgba(22, 27, 34, 0.5) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
   }
 
+  .glass-strong {
+    background: linear-gradient(135deg, rgba(28, 34, 48, 0.85) 0%, rgba(22, 27, 34, 0.7) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+  }
+
+  /* Legacy alias — keep .card working during transition */
+  .card {
+    @apply glass p-4;
+  }
+
+  /* ─── Diagonal corner accents (clipped panels, WuWa-style) ───────────────── */
+  .panel-tech {
+    @apply glass relative;
+    clip-path: polygon(
+      14px 0,
+      calc(100% - 14px) 0,
+      100% 14px,
+      100% calc(100% - 14px),
+      calc(100% - 14px) 100%,
+      14px 100%,
+      0 calc(100% - 14px),
+      0 14px
+    );
+  }
+
+  .panel-tech::before,
+  .panel-tech::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: rgba(103, 232, 249, 0.4);
+    pointer-events: none;
+  }
+  .panel-tech::before {
+    top: 0;
+    left: 0;
+    border-top: 1px solid;
+    border-left: 1px solid;
+  }
+  .panel-tech::after {
+    bottom: 0;
+    right: 0;
+    border-bottom: 1px solid;
+    border-right: 1px solid;
+  }
+
+  /* Section heading — small caps + cyan accent line */
+  .section-label {
+    @apply font-display text-xs uppercase tracking-[0.2em] text-ww-cyan flex items-center gap-2;
+  }
+  .section-label::before {
+    content: '';
+    width: 14px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(103, 232, 249));
+  }
+
+  /* ─── Buttons ────────────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-ww-accent hover:bg-ww-accent-hover text-black font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply font-display font-semibold uppercase tracking-wider text-sm px-5 py-2.5
+           text-ww-bg-deep transition-all duration-200
+           disabled:opacity-40 disabled:cursor-not-allowed
+           relative overflow-hidden;
+    background: linear-gradient(135deg, #f0b35b 0%, #e8a045 100%);
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    box-shadow: 0 0 18px rgba(232, 160, 69, 0.35);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 0 28px rgba(232, 160, 69, 0.55);
+    filter: brightness(1.1);
   }
 
   .btn-secondary {
-    @apply bg-ww-border hover:bg-opacity-80 text-ww-text font-medium px-4 py-2 rounded-lg transition-colors;
+    @apply font-display font-medium uppercase tracking-wider text-sm px-4 py-2.5
+           text-ww-text transition-all duration-200 border border-ww-border-glow
+           hover:border-ww-cyan hover:text-ww-cyan hover:shadow-glow-cyan;
+    background: rgba(28, 34, 48, 0.6);
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-500 text-white font-medium px-4 py-2 rounded-lg transition-colors;
+    @apply font-display font-medium uppercase tracking-wider text-sm px-4 py-2 rounded-md
+           text-red-200 border border-red-900/60 bg-red-950/40 hover:bg-red-900/50
+           transition-colors;
   }
 
-  .input {
-    @apply bg-ww-bg border border-ww-border rounded-lg px-3 py-2 text-ww-text text-sm
-           focus:outline-none focus:border-ww-accent transition-colors w-full;
+  .btn-icon {
+    @apply p-2 rounded-md border border-ww-border-glow bg-ww-surface/60
+           text-ww-muted hover:text-ww-cyan hover:border-ww-cyan transition-colors;
   }
 
+  /* ─── Inputs ─────────────────────────────────────────────────────────────── */
+  .input,
   .select {
-    @apply bg-ww-bg border border-ww-border rounded-lg px-3 py-2 text-ww-text text-sm
-           focus:outline-none focus:border-ww-accent transition-colors w-full cursor-pointer;
+    @apply bg-ww-bg-deep/70 border border-ww-border rounded-md px-3 py-2 text-ww-text text-sm
+           focus:outline-none focus:border-ww-cyan focus:shadow-glow-cyan transition-all w-full;
+    font-family: 'Rajdhani', system-ui, sans-serif;
+    font-weight: 500;
+  }
+  .select {
+    @apply cursor-pointer;
   }
 
+  /* ─── Tier badge (legacy) ────────────────────────────────────────────────── */
   .tier-badge {
-    @apply font-bold text-sm px-2 py-0.5 rounded;
+    @apply font-display font-bold uppercase tracking-wider text-sm px-2 py-0.5 rounded;
+  }
+
+  /* ─── Numeric / readout (mono-feel via Rajdhani tabular) ─────────────────── */
+  .readout {
+    font-family: 'Rajdhani', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* ─── Drop zone hexagonal border ─────────────────────────────────────────── */
+  .dropzone-frame {
+    background:
+      linear-gradient(rgba(28, 34, 48, 0.6), rgba(22, 27, 34, 0.4)) padding-box,
+      linear-gradient(135deg, rgba(103, 232, 249, 0.3), rgba(167, 139, 250, 0.2)) border-box;
+    border: 1.5px dashed transparent;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+  .dropzone-frame:hover {
+    background:
+      linear-gradient(rgba(28, 34, 48, 0.8), rgba(22, 27, 34, 0.6)) padding-box,
+      linear-gradient(135deg, rgba(103, 232, 249, 0.6), rgba(232, 160, 69, 0.4)) border-box;
+    box-shadow: 0 0 24px rgba(103, 232, 249, 0.2);
+  }
+  .dropzone-active {
+    background:
+      linear-gradient(rgba(232, 160, 69, 0.08), rgba(232, 160, 69, 0.04)) padding-box,
+      linear-gradient(135deg, rgba(232, 160, 69, 0.7), rgba(240, 179, 91, 0.5)) border-box;
+    box-shadow: 0 0 32px rgba(232, 160, 69, 0.4);
+  }
+
+  /* ─── Score number animated underline shimmer ────────────────────────────── */
+  .shimmer-line {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(103, 232, 249, 0.6) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
+
+@layer utilities {
+  /* App content needs to sit above the body::before starfield */
+  .above-stars {
+    position: relative;
+    z-index: 1;
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 12px rgba(103, 232, 249, 0.6);
+  }
+  .text-glow-gold {
+    text-shadow: 0 0 12px rgba(232, 160, 69, 0.5);
   }
 }

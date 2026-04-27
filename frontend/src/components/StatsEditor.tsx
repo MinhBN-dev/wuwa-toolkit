@@ -22,23 +22,23 @@ interface EchoInfo {
 interface Props {
   echoInfo: EchoInfo
   subStats: SubStat[]
-  /** stat display name → weight (only stats with weight > 0) for selected character */
   charWeights?: Record<string, number>
-  /** stat display name → list of valid roll values */
   subStatRolls?: Record<string, number[]>
-  /** hide echo name / cost fields — used when save dialog handles them */
   hideMeta?: boolean
   onEchoInfoChange: (info: EchoInfo) => void
   onSubStatsChange: (stats: SubStat[]) => void
 }
 
 function WeightBadge({ weight }: { weight: number }) {
-  const cls =
-    weight >= 0.9 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-    weight >= 0.4 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                    'bg-ww-border text-ww-muted border-ww-border'
+  const tier =
+    weight >= 0.9 ? { color: '#facc15', bg: 'rgba(250,204,21,0.12)', border: 'rgba(250,204,21,0.4)' } :
+    weight >= 0.4 ? { color: '#4ade80', bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.4)' } :
+                    { color: '#8b949e', bg: 'rgba(139,148,158,0.1)', border: 'rgba(139,148,158,0.3)' }
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono shrink-0 ${cls}`}>
+    <span
+      className="readout text-[10px] px-1.5 py-0.5 rounded border shrink-0"
+      style={{ color: tier.color, background: tier.bg, borderColor: tier.border }}
+    >
       ×{weight.toFixed(2)}
     </span>
   )
@@ -47,13 +47,24 @@ function WeightBadge({ weight }: { weight: number }) {
 function RollBar({ type, value }: { type: string; value: number }) {
   const max = SUB_STAT_MAX[type] ?? 1
   const pct = Math.min((value / max) * 100, 100)
-  const color = pct >= 80 ? 'bg-yellow-400' : pct >= 60 ? 'bg-green-400' : pct >= 40 ? 'bg-blue-400' : 'bg-ww-muted'
+  const color =
+    pct >= 80 ? '#facc15' :
+    pct >= 60 ? '#4ade80' :
+    pct >= 40 ? '#67e8f9' :
+                '#475569'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1 bg-ww-border rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      <div className="flex-1 h-1 bg-ww-bg-deep/70 rounded-full overflow-hidden border border-ww-border">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${color}88, ${color})`,
+            boxShadow: pct > 0 ? `0 0 6px ${color}80` : 'none',
+          }}
+        />
       </div>
-      <span className="text-xs text-ww-muted w-8 text-right">{Math.round(pct)}%</span>
+      <span className="readout text-[10px] text-ww-muted w-9 text-right">{Math.round(pct)}%</span>
     </div>
   )
 }
@@ -86,13 +97,13 @@ export default function StatsEditor({
     <div className="space-y-4">
       {/* Echo Identity — hidden when save dialog handles it */}
       {!hideMeta && (
-        <div className="card space-y-3">
-          <h3 className="font-semibold text-ww-text text-sm uppercase tracking-wider text-ww-accent">
-            Echo Info
-          </h3>
+        <section className="panel-tech p-5 space-y-3">
+          <h3 className="section-label">Echo Info</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-ww-muted mb-1 block">Echo Name</label>
+              <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+                Echo Name
+              </label>
               <input
                 className="input"
                 value={echoInfo.echo_name}
@@ -101,7 +112,9 @@ export default function StatsEditor({
               />
             </div>
             <div>
-              <label className="text-xs text-ww-muted mb-1 block">Cost</label>
+              <label className="block text-[11px] uppercase tracking-[0.2em] text-ww-muted mb-1.5 font-display">
+                Cost
+              </label>
               <select
                 className="select"
                 value={echoInfo.echo_cost}
@@ -113,27 +126,27 @@ export default function StatsEditor({
               </select>
             </div>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Sub Stats */}
-      <div className="card space-y-3">
+      <section className="panel-tech p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm uppercase tracking-wider text-ww-accent">
-            Sub Stats{' '}
-            <span className="text-ww-muted font-normal">
+          <h3 className="section-label">
+            Sub Stats
+            <span className="text-ww-muted ml-2 normal-case tracking-normal">
               {(() => {
                 const displayed = charWeights
                   ? subStats.filter(s => charWeights[s.type] !== undefined)
                   : subStats
                 const filled = displayed.filter(s => s.value > 0).length
-                return `(${filled}/${displayed.length})`
+                return `${filled}/${displayed.length}`
               })()}
             </span>
           </h3>
           <button
             onClick={addStat}
-            className="flex items-center gap-1 text-xs text-ww-accent hover:text-ww-accent-hover transition-colors"
+            className="flex items-center gap-1 text-[11px] uppercase tracking-wider font-display text-ww-cyan hover:text-glow-cyan transition-colors"
           >
             <Plus className="w-3 h-3" /> Add stat
           </button>
@@ -142,13 +155,11 @@ export default function StatsEditor({
         <div className="space-y-3">
           {subStats.map((stat, idx) => {
             const weight = charWeights?.[stat.type]
-            // When a character is selected, hide slots that have no weight
             if (charWeights && weight === undefined) return null
             const rolls = subStatRolls?.[stat.type]
             return (
-              <div key={idx} className="space-y-1">
+              <div key={idx} className="space-y-1.5">
                 <div className="flex gap-2 items-center">
-                  {/* Stat type selector */}
                   <select
                     className="select flex-1 min-w-0"
                     value={stat.type}
@@ -157,13 +168,11 @@ export default function StatsEditor({
                     {SUB_STAT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
 
-                  {/* Weight badge */}
                   {charWeights && weight !== undefined && <WeightBadge weight={weight} />}
 
-                  {/* Value — dropdown of valid rolls if available, otherwise free input */}
                   {rolls ? (
                     <select
-                      className="select w-20 text-right"
+                      className="select w-20 text-right readout"
                       value={stat.value || ''}
                       onChange={e => updateStatValue(idx, e.target.value)}
                     >
@@ -175,7 +184,7 @@ export default function StatsEditor({
                   ) : (
                     <input
                       type="number"
-                      className="input w-20 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="input readout w-20 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={stat.value || ''}
                       placeholder="0"
                       onChange={e => updateStatValue(idx, e.target.value)}
@@ -197,14 +206,14 @@ export default function StatsEditor({
           })}
 
           {subStats.length === 0 && (
-            <p className="text-ww-muted text-sm text-center py-4">
+            <p className="text-ww-muted text-sm text-center py-4 font-display tracking-wide">
               {charWeights
-                ? 'Paste hoặc upload ảnh echo để điền sub-stats'
-                : 'Chọn resonator trước, sau đó paste ảnh echo'}
+                ? 'Paste or upload an echo screenshot to fill sub-stats'
+                : 'Select a Resonator first, then paste an echo image'}
             </p>
           )}
         </div>
-      </div>
+      </section>
     </div>
   )
 }
