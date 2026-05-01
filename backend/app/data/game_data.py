@@ -174,6 +174,11 @@ CHARACTER_DATA: dict[str, dict] = {
         "er": [128.1, 0.6, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Broadblade", "role": "DPS",
     },
+    "Hiyuki (Tentative)": {
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.80]),
+        "er": [120.0, 0.8, 125.0], "anal": True,
+        "element": "Glacio", "weapon": "Sword", "role": "DPS",
+    },
     "Iuno (Main DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
         "er": [113.1, 0.8, 125.0], "anal": True,

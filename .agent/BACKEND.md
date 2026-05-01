@@ -160,6 +160,21 @@ File: `routers/evc_status.py`
 - Compare với `acknowledged_date` trong `evc_status.json`
 - `DATA_DIR` env var: thư mục chứa `evc_status.json` (default: backend root, Docker: `/app/data`)
 
+### Syncing upstream EVC updates
+
+Khi banner báo có update mới, lấy data từ upstream repo (`AstyuteChick/Echo-Value-Calculator`):
+
+```bash
+gh api repos/AstyuteChick/Echo-Value-Calculator/commits | jq '.[] | "\(.commit.author.date[:10]) \(.commit.message|split("\n")[0])"'
+gh api repos/AstyuteChick/Echo-Value-Calculator/commits/<sha> -H "Accept: application/vnd.github.v3.diff"
+```
+
+Đọc diff `evc_engine.py`, copy `[rv_array, [er_target, er_imp, er_imp_label], anal]` vào `data/game_data.py → CHARACTER_DATA`. Element/weapon/role không có trong upstream — **hỏi user** thay vì web research (xem feedback memory).
+
+## Character Seeding
+
+`main.py → seed_characters()` chạy trên mỗi lifespan startup. Idempotent: query `select(Character.name)` → diff với `CHARACTER_LIST` từ game_data → insert những entry mới. Add character vào `CHARACTER_DATA` rồi restart backend là đủ — không cần manual SQL.
+
 ## Schemas (schemas/echo.py)
 
 Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`.

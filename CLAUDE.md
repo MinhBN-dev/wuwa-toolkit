@@ -88,4 +88,6 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **No migrations framework** — schema changes = manual `ALTER TABLE` in psql, update SQLAlchemy model, rebuild backend container.
 
-- **Adding a new character** — entry in `data/game_data.py → CHARACTER_DATA` (weights + er_target + er_imp + er_imp_label) and `CHARACTER_LIST`. DB re-seeds automatically on next restart if `characters` table is empty.
+- **Adding a new character** — entry in `data/game_data.py → CHARACTER_DATA` (rv weights + er + element/weapon/role). `CHARACTER_LIST` is auto-derived. On backend restart, `seed_characters()` inserts any missing chars idempotently — no manual SQL needed. Frontend portrait: drop `frontend/public/characters/{slug}.webp` (slug = lowercase base name with hyphens; role suffix in parens is stripped automatically).
+
+- **EVC upstream sync** — when `echovaluecalc.com` adds a character (banner fires when `evc_status.acknowledged_date < latest`), pull the rv array + er from the upstream `evc_engine.py` diff (`AstyuteChick/Echo-Value-Calculator`) and **ask the user** for element/weapon/role rather than web-researching.
