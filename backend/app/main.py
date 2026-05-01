@@ -15,13 +15,14 @@ from app.database import AsyncSessionLocal
 
 
 async def seed_characters():
-    """Seed character table with game data if empty."""
+    """Insert any characters from game_data missing in the DB (idempotent)."""
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Character).limit(1))
-        if result.scalar_one_or_none():
-            return  # Already seeded
-
-        for char_data in CHARACTER_LIST:
+        result = await db.execute(select(Character.name))
+        existing = {row for row in result.scalars()}
+        new_chars = [c for c in CHARACTER_LIST if c["name"] not in existing]
+        if not new_chars:
+            return
+        for char_data in new_chars:
             db.add(Character(**char_data))
         await db.commit()
 
