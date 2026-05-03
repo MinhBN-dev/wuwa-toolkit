@@ -28,10 +28,12 @@ backend/
     │   ├── scoring.py   POST /score/calculate, POST /score/calculate-set
     │   ├── sets.py      CRUD: /sets (saved echo sets)
     │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
-    │   └── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
+    │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
+    │   └── convene.py    Convene tracker: /convene/import|players|stats|history
     ├── services/
     │   ├── ocr_service.py     OCR pipeline (EasyOCR + cloud fallbacks)
-    │   └── scoring_service.py EVC weighted scoring algorithm
+    │   ├── scoring_service.py EVC weighted scoring algorithm
+    │   └── convene_service.py WuWa gacha API client (URL parse + fetch_all_pools)
     └── data/
         └── game_data.py  CHARACTER_DATA, SUBSTAT_MEDIANS, CHARACTER_LIST, TIER_THRESHOLDS, ECHO_SETS, ECHO_ELEMENTS, ECHO_COSTS, MAIN_STAT_OPTIONS
 ```
@@ -62,6 +64,12 @@ backend/
 - slots (JSON list of EchoSetSlot)
 - created_at
 
+### ConvenePull
+- id (UUID PK), player_id (str), card_pool_type (1..7), pull_id (snowflake str)
+- name, item_type ("Resonator" / "Weapon"), quality_level (3/4/5), resource_id, count
+- time (DateTime, in-game pull time), created_at
+- UNIQUE `(player_id, card_pool_type, pull_id)` → append-only dedup on re-import
+
 ## API Routes
 
 | Method | Path | Description |
@@ -83,6 +91,11 @@ backend/
 | GET | /api/v1/character-profiles | All character build statuses + notes |
 | PUT | /api/v1/character-profiles/{name} | Upsert single character profile |
 | POST | /api/v1/character-profiles/bulk | Bulk upsert (localStorage migration) |
+| POST | /api/v1/convene/import | Paste in-game export URL → fetch all pools → ON CONFLICT DO NOTHING insert. `cardPoolId` (gacha_id) from URL is reused for every cardPoolType (required — empty returns near-zero data) |
+| GET | /api/v1/convene/players | List synced UIDs (UID + total + last_pull_time) |
+| GET | /api/v1/convene/history | Paginated pulls (default 4★+5★ via `min_rarity`). Filters: `pool_type`, `rarity`, `min_rarity`, `skip`, `limit`. Returns `{items, total, skip, limit}`. **Per-row pity** computed by walking the entire pool oldest-first |
+| GET | /api/v1/convene/stats | Always emits an entry for `VISIBLE_POOLS = (1,2,3,4)` even when 0 pulls. Per-pool: total, total_astrites (×160), 5★/4★ counts, current pity_5/pity_4, avg_pity_5, **pull_ratio** (5★/total), **wins_50_50 / losses_50_50 / win_rate_50_50** (only for pool 1), and 5★ list newest-first with pity-at-pull |
+| DELETE | /api/v1/convene/players/{uid} | Wipe UID's history |
 
 ## Data Flow
 
@@ -197,6 +210,28 @@ Provider priority (local-first):
 - Returns: `echo_name`, `echo_set`, `echo_element`, `echo_cost`, **`main_stat_type`**, **`main_stat_value`**, `sub_stats` (≤5)
 - EasyOCR: detect main stat qua `_SUBSTAT_MAX_VAL` ceiling; map raw text → standard stat names
 - Cloud providers: structured JSON extraction qua `EXTRACTION_PROMPT`
+
+### convene_service.py
+
+WuWa Convene history client (Oversea region only).
+
+- `parse_export_url(url)` — extracts `svr_id`, `player_id`, `record_id`, `lang` from the URL fragment (params live after `#/record?`, not in the query string). Raises `ConveneUrlError` on missing fields.
+- `fetch_pool(...)` — POST to `https://gmserver-api.aki-game2.net/gacha/record/query` with `Origin`/`Referer` matching the in-game webview. Returns the raw `data` array.
+- `fetch_all_pools(parsed)` — sequentially queries all 7 `cardPoolType` values; pools that fail (legitimately empty / locked) return `[]` instead of raising.
+- `normalize_pull(raw, ...)` — converts API record to DB-ready dict; uses the `id` snowflake as the dedup key.
+
+`POOL_TYPES`: `[(1, "Featured Resonator Convene"), (2, "Featured Weapon Convene"), (3, "Standard Resonator Convene"), (4, "Standard Weapon Convene"), (5, "Beginner Convene"), (6, "Beginner's Choice Convene"), (7, "Beginner's Choice Convene (Selector)")]`.
+
+The export URL `record_id` token expires after a short time — re-export from in-game when sync errors with API code != 0.
+
+**URL acquisition flow** (in addition to in-game Export Records button):
+- `frontend/public/get-convene-url.ps1` is served at site root. Users on Windows run `iex (irm 'http://<host>/get-convene-url.ps1')` in PowerShell.
+- Script auto-discovers WuWa install path (registry → firewall rules → common drive paths), greps `Client.log` for the gacha URL, copies to clipboard.
+- Game must be running with Convene → History opened at least once (URL only appears in log after that webview loads).
+
+**Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate `pull_id = f"{sequence:06d}"` where sequence is the index in the API response **reversed** (oldest = 0). Stable across re-syncs because the API response is deterministic and new pulls only append to the high end of the sequence. Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
+
+**50/50 win rate (Pool 1 only)** — WuWa rule: a standard-pool 5★ ("loss") guarantees the next 5★ is featured. That guaranteed pull is NOT a 50/50 attempt and must be excluded from win rate. Algorithm walks pool 1 pulls oldest-first with a `guaranteed_next` flag; only counts pulls where the flag was False. `STANDARD_5_RESONATORS = {Calcharo, Encore, Jianxin, Lingyang, Verina}`. `ASTRITES_PER_PULL = 160`.
 
 ### scoring_service.py
 - `calculate_score(sub_stats, character_name, echo_cost, total_er)` → dict (single echo, stateless)

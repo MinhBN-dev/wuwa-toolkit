@@ -20,7 +20,9 @@ frontend/
     │   └── api.ts       axios wrapper cho tất cả API calls
     ├── utils/
     │   ├── tier.ts          TIER_THRESHOLDS, getTierLabel, getTierClass, getBarColor
-    │   └── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
+    │   ├── echoHelpers.ts   snapToRoll, defaultSubStatsForChar (shared giữa Home + Set)
+    │   ├── character.ts     getCharacterIcon/Slug + getWeaponIcon/Slug (slug = lowercase + spaces→hyphens; WuWa portraits at /characters/, weapon icons at /weapons/)
+    │   └── time.ts          formatGameTime (treat naive WuWa pull time as UTC+8 → display UTC+7), formatLocalTime (treat naive server timestamp as UTC → UTC+7)
     ├── components/
     │   ├── Logo.tsx           SVG hexagonal "O" mark — gradient stroke + spinning diamond center
     │   ├── EchoUploader.tsx   Drag-and-drop image upload → OCR API; uses .dropzone-frame, rotating diamond icon
@@ -34,7 +36,8 @@ frontend/
         ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
         ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
         ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
-        └── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
+        ├── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
+        └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win), pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
 ```
 
 ## Routes
@@ -42,6 +45,7 @@ frontend/
 - `/set`         → Full Set optimizer
 - `/saved`       → Saved Echoes + Saved Sets
 - `/characters`  → Character roster with build status tracking
+- `/convene`     → Convene (gacha) history tracker — import via in-game export URL
 
 ## Types (echo.ts)
 
@@ -60,6 +64,11 @@ frontend/
 | `CharacterEr` | er_target, er_imp, er_imp_label |
 | `CharacterProfile` | character_name, build_status, notes |
 | `CharacterProfileUpsert` | build_status, notes? |
+| `ConveneImportResponse` | player_id, svr_id, pools[], total_added, total_fetched |
+| `ConvenePoolStats` | pool_type, pool_label, total, 5★/4★ counts, pity_5, pity_4, avg_pity_5, five_stars[] |
+| `ConveneStatsResponse` | player_id, last_synced_at, pools[] |
+| `ConvenePullResponse` | pull_id, name, item_type, quality_level, time, pity? |
+| `ConvenePlayerSummary` | player_id, total_pulls, last_pull_time |
 
 ## API Calls (api.ts)
 
@@ -80,6 +89,11 @@ acknowledgeEvcUpdate(date)   POST /evc-status/acknowledge
 getCharacterProfiles()       GET /character-profiles         — tất cả build status + notes
 upsertCharacterProfile(n,d)  PUT /character-profiles/{name}  — save 1 char
 bulkUpsertCharacterProfiles  POST /character-profiles/bulk   — one-time localStorage migration
+importConveneHistory(url)    POST /convene/import          — paste export URL, append-only sync (timeout 90s)
+getConvenePlayers()          GET /convene/players          — list synced UIDs
+getConveneStats(player_id)   GET /convene/stats            — pity + 5★ per pool
+getConveneHistory(params)    GET /convene/history          — paginated, filter pool/rarity
+deleteConvenePlayer(uid)     DELETE /convene/players/{uid} — wipe a UID's history
 ```
 **Đã xóa:** `createEcho`, `updateEcho`, `getEcho` — không có component nào gọi
 

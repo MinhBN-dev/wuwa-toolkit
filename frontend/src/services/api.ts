@@ -5,6 +5,8 @@ import type {
   SetScoreRequest, SetScoreResponse,
   EchoSetSaveRequest, SavedEchoSet,
   CharacterProfile, CharacterProfileUpsert,
+  ConveneImportResponse, ConveneStatsResponse,
+  ConvenePlayerSummary, ConveneHistoryResponse,
 } from '../types/echo'
 
 const api = axios.create({
@@ -80,3 +82,26 @@ export const upsertCharacterProfile = (characterName: string, data: CharacterPro
 
 export const bulkUpsertCharacterProfiles = (profiles: Record<string, CharacterProfileUpsert>) =>
   api.post<Record<string, CharacterProfile>>('/character-profiles/bulk', { profiles }).then(r => r.data)
+
+// Convene tracker
+export const importConveneHistory = (url: string) =>
+  api.post<ConveneImportResponse>('/convene/import', { url }, { timeout: 90000 }).then(r => r.data)
+
+export const getConvenePlayers = () =>
+  api.get<ConvenePlayerSummary[]>('/convene/players').then(r => r.data)
+
+export const getConveneStats = (player_id: string) =>
+  api.get<ConveneStatsResponse>('/convene/stats', { params: { player_id } }).then(r => r.data)
+
+export const getConveneHistory = (params: {
+  player_id: string
+  pool_type?: number
+  rarity?: number
+  min_rarity?: number
+  skip?: number
+  limit?: number
+}) =>
+  api.get<ConveneHistoryResponse>('/convene/history', { params }).then(r => r.data)
+
+export const deleteConvenePlayer = (player_id: string) =>
+  api.delete(`/convene/players/${encodeURIComponent(player_id)}`)

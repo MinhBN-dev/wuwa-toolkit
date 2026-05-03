@@ -153,6 +153,70 @@ export interface CharacterProfileUpsert {
   notes?: string | null
 }
 
+// ── Convene tracker ───────────────────────────────────────────────────────────
+
+export interface ConvenePoolImport {
+  pool_type: number
+  pool_label: string
+  fetched: number
+  added: number
+}
+
+export interface ConveneImportResponse {
+  player_id: string
+  svr_id: string
+  pools: ConvenePoolImport[]
+  total_added: number
+  total_fetched: number
+}
+
+export interface ConvenePullResponse {
+  pull_id: string
+  name: string
+  item_type: string
+  quality_level: number
+  resource_id: number | null
+  time: string
+  pity?: number | null
+  card_pool_type?: number | null
+}
+
+export interface ConveneHistoryResponse {
+  items: ConvenePullResponse[]
+  total: number
+  skip: number
+  limit: number
+}
+
+export interface ConvenePoolStats {
+  pool_type: number
+  pool_label: string
+  total: number
+  total_astrites: number
+  five_star_count: number
+  four_star_count: number
+  pity_5: number
+  pity_4: number
+  avg_pity_5: number | null
+  pull_ratio: number | null
+  wins_50_50: number | null
+  losses_50_50: number | null
+  win_rate_50_50: number | null
+  five_stars: ConvenePullResponse[]
+}
+
+export interface ConveneStatsResponse {
+  player_id: string
+  last_synced_at: string | null
+  pools: ConvenePoolStats[]
+}
+
+export interface ConvenePlayerSummary {
+  player_id: string
+  total_pulls: number
+  last_pull_time: string | null
+}
+
 export interface CharacterEr {
   er_target: number
   er_imp: number
