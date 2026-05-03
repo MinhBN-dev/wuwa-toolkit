@@ -91,3 +91,9 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 - **Adding a new character** — entry in `data/game_data.py → CHARACTER_DATA` (rv weights + er + element/weapon/role). `CHARACTER_LIST` is auto-derived. On backend restart, `seed_characters()` inserts any missing chars idempotently — no manual SQL needed. Frontend portrait: drop `frontend/public/characters/{slug}.webp` (slug = lowercase base name with hyphens; role suffix in parens is stripped automatically).
 
 - **EVC upstream sync** — when `echovaluecalc.com` adds a character (banner fires when `evc_status.acknowledged_date < latest`), pull the rv array + er from the upstream `evc_engine.py` diff (`AstyuteChick/Echo-Value-Calculator`) and **ask the user** for element/weapon/role rather than web-researching.
+
+- **Convene tracker is Oversea-only** — `convene_service.py` hits `gmserver-api.aki-game2.net`. Append-only via `(player_id, card_pool_type, pull_id)` UNIQUE + `ON CONFLICT DO NOTHING`. The export URL token (`record_id`) expires after a short time — not stored, user pastes a fresh URL each sync. `cardPoolId` (gacha_id) from URL must be reused for ALL cardPoolType values when calling the gacha API (passing `""` returns only a fragment of the data). The API doesn't include a unique id per pull, so `pull_id` is synthesized as a per-pool oldest-first sequence number (`f"{idx:06d}"`).
+
+- **50/50 win rate excludes guarantees** — Pool 1 win rate = real_wins / (real_wins + real_losses); a 5★ that came AFTER a standard-pool loss is `guaranteed` and skipped from the calculation. Standard 5★ resonators (used to detect losses): Calcharo, Encore, Jianxin, Lingyang, Verina. Astrites per pull: 160.
+
+- **All UI times in UTC+7** — `utils/time.ts → formatGameTime` for WuWa pull times (parses naive ISO as UTC+8 game-server tz, displays in `Asia/Ho_Chi_Minh`); `formatLocalTime` for server-stored UTC timestamps. Display format: `YYYY-MM-DD HH:MM:SS`.

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, JSON, DateTime, ForeignKey, Text
+from sqlalchemy import String, Float, Integer, JSON, DateTime, ForeignKey, Text, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
@@ -79,4 +79,29 @@ class EchoSet(Base):
     slots: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     set_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     set_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ConvenePull(Base):
+    """One gacha pull recorded from in-game Convene History.
+
+    Dedup key: (player_id, card_pool_type, pull_id) — pull_id is the snowflake
+    string returned by the WuWa gacha API; unique per player+pool.
+    """
+    __tablename__ = "convene_pulls"
+    __table_args__ = (
+        UniqueConstraint("player_id", "card_pool_type", "pull_id", name="uq_convene_pull"),
+        Index("ix_convene_player_pool_time", "player_id", "card_pool_type", "time"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    player_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    card_pool_type: Mapped[int] = mapped_column(Integer, nullable=False)  # 1..7
+    pull_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(40), nullable=False)  # "Resonator" / "Weapon"
+    quality_level: Mapped[int] = mapped_column(Integer, nullable=False)  # 3 / 4 / 5
+    resource_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    time: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -28,6 +28,18 @@ export function getCharacterIcon(name: string): string {
   return `/characters/${getCharacterSlug(name)}.webp`
 }
 
+// ── Weapon icons ──────────────────────────────────────────────────────────────
+
+/** Slug rule for weapon filenames — same as characters: lowercase + hyphens.
+ *  Drop the corresponding .webp at `frontend/public/weapons/{slug}.webp`. */
+export function getWeaponSlug(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+export function getWeaponIcon(name: string): string {
+  return `/weapons/${getWeaponSlug(name)}.webp`
+}
+
 // ── Build status ──────────────────────────────────────────────────────────────
 
 export type BuildStatus = 'not_built' | 'building' | 'built'

@@ -7,6 +7,10 @@
     /* fallback color sits on html so body's pseudo-elements can use negative z-index
        safely — pseudo with z-index < 0 is hidden by body's own background-color */
     background-color: #070912;
+    /* Site-wide font scale: 17px root → all rem-based Tailwind text sizes scale
+       up ~6% from the default 16px. Absolute pixel sizes (e.g. text-[10px])
+       remain unchanged so micro-labels stay compact. */
+    font-size: 17px;
   }
 
   body {

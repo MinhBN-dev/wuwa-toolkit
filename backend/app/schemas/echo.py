@@ -181,3 +181,74 @@ class EchoSetResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Convene tracker ────────────────────────────────────────────────────────────
+
+class ConveneImportRequest(BaseModel):
+    url: str
+
+
+class ConvenePoolImport(BaseModel):
+    pool_type: int
+    pool_label: str
+    fetched: int
+    added: int
+
+
+class ConveneImportResponse(BaseModel):
+    player_id: str
+    svr_id: str
+    pools: list[ConvenePoolImport]
+    total_added: int
+    total_fetched: int
+
+
+class ConvenePullResponse(BaseModel):
+    pull_id: str
+    name: str
+    item_type: str
+    quality_level: int
+    resource_id: int | None
+    time: datetime
+    pity: int | None = None  # filled by stats endpoint, not history list
+    card_pool_type: int | None = None  # filled by history endpoint
+
+    model_config = {"from_attributes": True}
+
+
+class ConveneHistoryResponse(BaseModel):
+    items: list[ConvenePullResponse]
+    total: int
+    skip: int
+    limit: int
+
+
+class ConvenePoolStats(BaseModel):
+    pool_type: int
+    pool_label: str
+    total: int
+    total_astrites: int                      # total × 160 (cost per pull)
+    five_star_count: int
+    four_star_count: int
+    pity_5: int       # pulls since last 5★ (current pity)
+    pity_4: int       # pulls since last 4★
+    avg_pity_5: float | None
+    pull_ratio: float | None                 # 5★ / total × 100
+    # 50/50 stats — only meaningful for pool 1 (Featured Resonator)
+    wins_50_50: int | None = None            # 5★ that were the limited featured
+    losses_50_50: int | None = None          # 5★ that were a standard pool char
+    win_rate_50_50: float | None = None      # wins / (wins + losses) × 100
+    five_stars: list[ConvenePullResponse]   # 5★ history with pity-at-pull
+
+
+class ConveneStatsResponse(BaseModel):
+    player_id: str
+    last_synced_at: datetime | None
+    pools: list[ConvenePoolStats]
+
+
+class ConvenePlayerSummary(BaseModel):
+    player_id: str
+    total_pulls: int
+    last_pull_time: datetime | None

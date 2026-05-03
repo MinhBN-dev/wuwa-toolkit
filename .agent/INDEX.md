@@ -15,6 +15,7 @@
 | Frontend pages, components, types, API client | `.agent/FRONTEND.md` |
 | Tier UI / colors / `tier.ts` | `.agent/FRONTEND.md` |
 | EvcBanner, Set page state, Saved page filtering | `.agent/FRONTEND.md` |
+| Convene tracker (gacha import, pity, history) | `.agent/BACKEND.md` (router/service) + `.agent/FRONTEND.md` (page) |
 | Docker compose, override, networks, volumes | `.agent/DEVOPS.md` |
 | Local dev commands, env files, psql, reset tables | `.agent/DEVOPS.md` |
 | Production URL (`echoes.local`), Avahi mDNS | `.agent/DEVOPS.md` |
