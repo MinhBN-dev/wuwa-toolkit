@@ -1,4 +1,4 @@
-# Echoes Optimizer — Agent Index
+# Wuwa Toolkit — Agent Index
 
 Đọc file này TRƯỚC KHI browse code. Mục đích: routing đến đúng file cần đọc, tránh tốn context.
 
@@ -18,7 +18,7 @@
 | Convene tracker (gacha import, pity, history) | `.agent/BACKEND.md` (router/service) + `.agent/FRONTEND.md` (page) |
 | Docker compose, override, networks, volumes | `.agent/DEVOPS.md` |
 | Local dev commands, env files, psql, reset tables | `.agent/DEVOPS.md` |
-| Production URL (`echoes.local`), Avahi mDNS | `.agent/DEVOPS.md` |
+| Production URL (`wuwa-toolkit.local`), Avahi mDNS, LAN client hosts file | `.agent/DEVOPS.md` |
 | Common issues troubleshooting | `.agent/DEVOPS.md` |
 
 ## Conventions cheat-sheet (đã có trong CLAUDE.md auto-load — không lặp ở đây)

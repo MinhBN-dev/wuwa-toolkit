@@ -1,4 +1,4 @@
-# Database Schema — Echoes Optimizer
+# Database Schema — Wuwa Toolkit
 
 ## ERD (Entity Relationship Diagram)
 
@@ -43,9 +43,36 @@ erDiagram
         timestamp created_at
     }
 
+    character_profiles {
+        uuid    id              PK
+        varchar character_name  UK  "Unique — one profile per resonator"
+        varchar build_status        "not_built / building / built"
+        text    notes
+        timestamp updated_at
+    }
+
+    convene_pulls {
+        uuid    id              PK
+        varchar player_id           "WuWa game UID"
+        integer card_pool_type      "1=Featured Resonator, 2=Featured Weapon, 3=Standard Resonator, …"
+        varchar pull_id             "Synthetic per-pool sequence (oldest=000000)"
+        varchar name                "Resonator or weapon name pulled"
+        varchar item_type           "Resonator / Weapon"
+        integer quality_level       "3 / 4 / 5"
+        integer resource_id
+        integer count
+        timestamp time              "In-game pull time (UTC+8)"
+        timestamp created_at
+    }
+
     characters ||--o{ echoes      : "owns"
     characters ||--o{ echo_sets   : "owns"
 ```
+
+**Indexes / constraints:**
+- `convene_pulls`: UNIQUE `(player_id, card_pool_type, pull_id)` enables append-only `ON CONFLICT DO NOTHING` re-import.
+- `character_profiles`: `character_name` is unique-indexed for upsert lookups.
+- `characters.name` is unique; backend auto-seeds rows from `data/game_data.py → CHARACTER_LIST` on lifespan startup (idempotent).
 
 ---
 

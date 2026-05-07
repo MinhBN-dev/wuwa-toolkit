@@ -1,6 +1,10 @@
-# CLAUDE.md
+# CLAUDE.md — Wuwa Toolkit
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project scope
+
+**Wuwa Toolkit** is a self-hosted multi-tool web app for **Wuthering Waves**. Started as the EVC-based echo optimizer (and the project directory / git history still reflect that origin), now also includes a Convene history tracker, character build planner, and is intended to grow further. Treat the codebase as an umbrella, not a single-feature app — when adding a new feature, prefer adding it as a sibling page/router/service rather than entangling with existing ones. The word **Echo** in code (`Echo` model, `/echoes` routes, `scoring_service`) refers to the in-game echo item — that is domain terminology, not the brand and should not be renamed.
 
 ## Before You Start
 
@@ -41,18 +45,18 @@ docker compose build <service> && docker compose up -d <service>   # rebuild 1 s
 docker compose logs -f <service>
 ```
 
-Production URL: `http://echoes.local` (Avahi mDNS, LAN-wide).
+Production URL: `http://wuwa-toolkit.local` (Avahi mDNS). LAN-wide auto-resolve only works when the home modem doesn't filter multicast; modems that do (e.g. Viettel DASAN H646GM-V) require a manual `hosts` entry on each LAN client — see `.agent/DEVOPS.md`.
 
 `docker-compose.override.yml` is gitignored — used on this machine to swap to `shared-postgres` and join the LAN nginx-proxy. Public users don't need it. Detail in `.agent/DEVOPS.md`.
 
 ### Database
 
 DB name depends on setup:
-- **Public default** (standalone `echoes-postgres`): `echoes_optimizer`
-- **This machine** (override → `shared-postgres`, naming convention `{project}_db`): `echoes_db`
+- **Public default** (standalone `wuwa-toolkit-postgres`): `wuwa_toolkit_db`
+- **This machine** (override → `shared-postgres`, naming convention `{project}_db`): `wuwa_toolkit_db`
 
 ```bash
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U echoes_user -d <db_name>
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U wuwa_toolkit_user -d wuwa_toolkit_db
 ```
 
 Reset tables → `.agent/DEVOPS.md`.
