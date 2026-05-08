@@ -47,10 +47,10 @@ export default function App() {
               <Logo size={36} className="transition-transform group-hover:scale-110" />
               <div className="flex flex-col leading-none">
                 <span className="font-display font-bold uppercase tracking-[0.25em] text-base text-ww-text">
-                  Echoes
+                  Wuwa
                 </span>
                 <span className="font-display uppercase tracking-[0.4em] text-[10px] text-ww-cyan/80 mt-0.5">
-                  Optimizer
+                  Toolkit
                 </span>
               </div>
             </NavLink>
@@ -81,7 +81,7 @@ export default function App() {
         {/* Footer */}
         <footer className="relative border-t border-ww-border py-3 text-center text-[11px] uppercase tracking-[0.25em] text-ww-muted/70 font-display">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-ww-cyan/30 to-transparent" />
-          Echoes Optimizer · EVC 3.2 Scoring · Wuthering Waves
+          Wuwa Toolkit · EVC 3.2 Echo Scoring · Convene Tracker · Wuthering Waves
         </footer>
       </div>
     </BrowserRouter>

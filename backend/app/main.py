@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Echoes Optimizer API",
-    description="Wuthering Waves echo management and scoring tool",
+    title="Wuwa Toolkit API",
+    description="Wuthering Waves toolkit — echo scoring (EVC 3.2), convene tracker, and more",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -68,4 +68,4 @@ app.include_router(convene.router, prefix="/api/v1")
 
 @app.get("/api/v1/health")
 async def health():
-    return {"status": "ok", "service": "echoes-optimizer"}
+    return {"status": "ok", "service": "wuwa-toolkit"}

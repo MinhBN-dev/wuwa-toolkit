@@ -1,4 +1,4 @@
-# Echoes Optimizer — Backend
+# Wuwa Toolkit — Backend
 
 > Source of truth cho scoring algorithm, dedup, data flow, API surface.
 

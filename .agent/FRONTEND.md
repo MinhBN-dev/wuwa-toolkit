@@ -1,4 +1,4 @@
-# Echoes Optimizer — Frontend
+# Wuwa Toolkit — Frontend
 
 ## File Map
 
@@ -24,7 +24,7 @@ frontend/
     │   ├── character.ts     getCharacterIcon/Slug + getWeaponIcon/Slug (slug = lowercase + spaces→hyphens; WuWa portraits at /characters/, weapon icons at /weapons/)
     │   └── time.ts          formatGameTime (treat naive WuWa pull time as UTC+8 → display UTC+7), formatLocalTime (treat naive server timestamp as UTC → UTC+7)
     ├── components/
-    │   ├── Logo.tsx           SVG hexagonal "O" mark — gradient stroke + spinning diamond center
+    │   ├── Logo.tsx           `<img>` rendering `/logo.jpeg` (project logo, square, rounded)
     │   ├── EchoUploader.tsx   Drag-and-drop image upload → OCR API; uses .dropzone-frame, rotating diamond icon
     │   ├── StatsEditor.tsx    Edit sub-stats với panel-tech sections; weight badges + RollBar with tier-color glow
     │   ├── ScoreDisplay.tsx   Big tier-colored 5xl readout + glow shimmer bar + stat breakdown + dim/lit tier ladder

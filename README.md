@@ -1,15 +1,23 @@
-# Echoes Optimizer
+# Wuwa Toolkit
 
-A web application for scoring, managing, and analyzing Echoes in **Wuthering Waves** — powered by the [Echo Value Calculator (EVC)](https://www.echovaluecalc.com/) scoring formula.
+A self-hosted toolkit for **Wuthering Waves** — Echo scoring (powered by [EVC](https://www.echovaluecalc.com/)), Convene history tracker, character build planner, and more. Originally an Echo optimizer, it is now an umbrella for multiple WuWa tools and is intended to grow.
 
 ## Features
 
+### Echo Optimizer
 - **Screenshot OCR** — upload or paste an Echo screenshot; stats are extracted automatically (EasyOCR runs locally, no API key required)
 - **Echo scoring** — weighted score per character using the EVC 3.2 formula, with tier labels (Godly → Unbuilt)
 - **Full-set scoring** — score all 5 Echo slots together in a single EVC full-mode call (shared Energy Regen budget across the set)
 - **Echo library** — save, filter by tier/character/name, and delete Echoes
 - **Set management** — save named sets per resonator, load them back, view aggregate set score
+
+### Resonator & build tracking
 - **Character tracker** — track build status (Built / Building / Not Built) and notes per resonator, synced across browsers
+
+### Convene tracker (Oversea-only)
+- **Pull import** — paste your in-game export URL once; the server fetches all four banner pools and persists them
+- **Pity tracking** — current pity per pool, plus 4★ pity
+- **50/50 stats** — limited-banner win rate, with first-loss-then-guaranteed pulls excluded so the percentage reflects real luck
 
 ---
 
@@ -47,8 +55,8 @@ That's all. No Python, Node, or PostgreSQL install needed — the stack is self-
 ### 1. Clone
 
 ```bash
-git clone https://github.com/MinhBN-dev/echoes-optimizer.git
-cd echoes-optimizer
+git clone https://github.com/MinhBN-dev/wuwa-toolkit.git
+cd wuwa-toolkit
 ```
 
 ### 2. Configure environment
@@ -93,9 +101,9 @@ Containers in this setup:
 
 | Container | Port | Role |
 |---|---|---|
-| `echoes-frontend` | `${PORT:-80}` → 80 | nginx — serves static React build, proxies `/api` to backend |
-| `echoes-backend` | internal `:8001` | FastAPI + uvicorn |
-| `echoes-postgres` | internal `:5432` | PostgreSQL 16 (data in `postgres_data` volume) |
+| `wuwa-toolkit-frontend` | `${PORT:-80}` → 80 | nginx — serves static React build, proxies `/api` to backend |
+| `wuwa-toolkit-backend` | internal `:8001` | FastAPI + uvicorn |
+| `wuwa-toolkit-postgres` | internal `:5432` | PostgreSQL 16 (data in `postgres_data` volume) |
 
 > **Advanced:** If you already have a shared PostgreSQL on this machine, you can disable the bundled one with a `docker-compose.override.yml`. See [docs/](docs/) or check `.gitignore` for the override pattern.
 
@@ -113,15 +121,15 @@ Run each component on the host with hot-reload. Useful when you're modifying cod
 ### 1. Clone & create database
 
 ```bash
-git clone https://github.com/MinhBN-dev/echoes-optimizer.git
-cd echoes-optimizer
+git clone https://github.com/MinhBN-dev/wuwa-toolkit.git
+cd wuwa-toolkit
 ```
 
 Create a database and user (example using a local Postgres instance):
 
 ```bash
-psql -U postgres -c "CREATE USER echoes_user WITH PASSWORD 'choose_a_password';"
-psql -U postgres -c "CREATE DATABASE echoes_optimizer OWNER echoes_user;"
+psql -U postgres -c "CREATE USER wuwa_toolkit_user WITH PASSWORD 'choose_a_password';"
+psql -U postgres -c "CREATE DATABASE wuwa_toolkit_db OWNER wuwa_toolkit_user;"
 ```
 
 ### 2. Backend
@@ -134,7 +142,7 @@ pip install -r requirements.txt
 
 cp .env.example .env
 # Edit backend/.env — at minimum set DATABASE_URL:
-#   DATABASE_URL=postgresql+asyncpg://echoes_user:choose_a_password@localhost:5432/echoes_optimizer
+#   DATABASE_URL=postgresql+asyncpg://wuwa_toolkit_user:choose_a_password@localhost:5432/wuwa_toolkit_db
 # Optionally set GOOGLE_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY for OCR fallbacks
 # ALLOWED_ORIGINS=http://localhost:5174   (so the frontend can call the API)
 
@@ -211,25 +219,26 @@ ES = (AV / EP) × 100    ← not capped, values > 100 are valid
 ## Project Structure
 
 ```
-echoes-optimizer/
+wuwa-toolkit/
 ├── .env.example             ← copy to .env (Docker)
 ├── docker-compose.yml
 ├── backend/
 │   ├── .env.example         ← copy to backend/.env (local dev)
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── models/          SQLAlchemy ORM models
-│   │   ├── routers/         API route handlers
-│   │   ├── services/        scoring_service.py, ocr_service.py
+│   │   ├── models/          SQLAlchemy ORM models (Echo, Character, Convene…)
+│   │   ├── routers/         API route handlers per feature
+│   │   ├── services/        scoring_service, ocr_service, convene_service
 │   │   └── data/game_data.py  character weights & ER targets
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
+│   ├── public/              static assets (logo, character portraits, weapons)
 │   ├── src/
-│   │   ├── pages/           Home, Set, Saved, Characters
+│   │   ├── pages/           Home, Set, Saved, Characters, Convene
 │   │   ├── components/      EchoCard, StatsEditor, ScoreDisplay, …
 │   │   ├── services/api.ts  all API calls
-│   │   └── utils/           tier.ts, echoHelpers.ts, character.ts
+│   │   └── utils/           tier.ts, echoHelpers.ts, character.ts, time.ts
 │   ├── nginx.conf           production nginx config
 │   └── Dockerfile
 └── nginx/                   reverse-proxy config (optional, for advanced setups)
@@ -255,6 +264,11 @@ echoes-optimizer/
 | GET | `/api/v1/character-profiles` | Character build status + notes |
 | PUT | `/api/v1/character-profiles/{name}` | Update build status/notes |
 | GET | `/api/v1/evc-status` | Check for EVC formula updates |
+| POST | `/api/v1/convene/import` | Import pulls from in-game export URL |
+| GET | `/api/v1/convene/players` | List imported players |
+| GET | `/api/v1/convene/history` | Pull history for a player |
+| GET | `/api/v1/convene/stats` | Pity counters & 50/50 win rate |
+| DELETE | `/api/v1/convene/players/{player_id}` | Remove a player and their pulls |
 
 Full Swagger docs at `/docs` when the backend is running.
 
@@ -263,7 +277,7 @@ Full Swagger docs at `/docs` when the backend is running.
 ## Troubleshooting
 
 **Backend can't connect to the database**
-- Docker: `docker compose ps` — make sure `echoes-postgres` is `healthy`.
+- Docker: `docker compose ps` — make sure `wuwa-toolkit-postgres` is `healthy`.
 - Local: confirm PostgreSQL is running and `DATABASE_URL` in `backend/.env` matches your DB credentials.
 
 **OCR returns empty / wrong stats**

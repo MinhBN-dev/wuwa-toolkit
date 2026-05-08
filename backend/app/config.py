@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
-    UPLOAD_DIR: str = "/tmp/echoes_uploads"
+    UPLOAD_DIR: str = "/tmp/wuwa_toolkit_uploads"
     MAX_UPLOAD_SIZE_MB: int = 20
     ALLOWED_ORIGINS: str = "http://localhost:5173"
 

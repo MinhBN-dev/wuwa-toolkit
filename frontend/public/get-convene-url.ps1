@@ -1,4 +1,4 @@
-# Echoes Optimizer — Wuthering Waves Convene URL extractor (Oversea)
+# Wuwa Toolkit — Wuthering Waves Convene URL extractor (Oversea)
 # Reads Client.log from common install paths + registry, extracts the gacha
 # history URL, and copies it to clipboard. Run in Windows PowerShell after you
 # open Convene → History in-game (so the log contains a fresh URL).
@@ -76,7 +76,7 @@ if ($url) {
     Write-Host "Convene URL copied to clipboard:" -ForegroundColor Green
     Write-Host $url -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Now paste it into the Convene tracker page in Echoes Optimizer." -ForegroundColor Cyan
+    Write-Host "Now paste it into the Convene tracker page in Wuwa Toolkit." -ForegroundColor Cyan
 } else {
     Write-Host "No Convene URL found in logs. Open Convene > History in-game first, then re-run." -ForegroundColor Red
 }
