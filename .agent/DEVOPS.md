@@ -39,16 +39,14 @@ docker ps | grep -E 'wuwa-toolkit-postgres|shared-postgres'
 
 **2. Backend**
 ```bash
-cd /home/ubuntu-dev/Projects/Echoes_Optimizer/backend
+cd /home/ubuntu-dev/Projects/Wuwa_Toolkit/backend
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
-
-> Dir name vẫn là `Echoes_Optimizer/` (giữ nguyên history & path-coupled config); brand mới chỉ áp dụng cho UI/container/DB.
 
 **3. Frontend**
 ```bash
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-cd /home/ubuntu-dev/Projects/Echoes_Optimizer/frontend
+cd /home/ubuntu-dev/Projects/Wuwa_Toolkit/frontend
 npm run dev   # port 5174
 ```
 
@@ -111,7 +109,7 @@ File này đã được thêm vào `.gitignore`. Public users không cần file 
 
 ### Khởi động / Dừng
 ```bash
-cd /home/ubuntu-dev/Projects/Echoes_Optimizer
+cd /home/ubuntu-dev/Projects/Wuwa_Toolkit
 
 docker compose up -d           # khởi động
 docker compose down            # dừng (giữ volumes)
