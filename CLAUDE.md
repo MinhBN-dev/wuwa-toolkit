@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project scope
 
-**Wuwa Toolkit** is a self-hosted multi-tool web app for **Wuthering Waves**. Started as the EVC-based echo optimizer (and the project directory / git history still reflect that origin), now also includes a Convene history tracker, character build planner, and is intended to grow further. Treat the codebase as an umbrella, not a single-feature app — when adding a new feature, prefer adding it as a sibling page/router/service rather than entangling with existing ones. The word **Echo** in code (`Echo` model, `/echoes` routes, `scoring_service`) refers to the in-game echo item — that is domain terminology, not the brand and should not be renamed.
+**Wuwa Toolkit** is a self-hosted multi-tool web app for **Wuthering Waves**. Started as the EVC-based echo optimizer (the git history still reflects that origin), now also includes a Convene history tracker, character build planner, and is intended to grow further. Treat the codebase as an umbrella, not a single-feature app — when adding a new feature, prefer adding it as a sibling page/router/service rather than entangling with existing ones. The word **Echo** in code (`Echo` model, `/echoes` routes, `scoring_service`) refers to the in-game echo item — that is domain terminology, not the brand and should not be renamed.
 
 ## Before You Start
 
-**Read memory** — `/home/ubuntu-dev/.claude/projects/-home-ubuntu-dev-Projects-Echoes-Optimizer/memory/MEMORY.md` (user preferences, past feedback, project context).
+**Read memory** — `/home/ubuntu-dev/.claude/projects/-home-ubuntu-dev-Projects-Wuwa-Toolkit/memory/MEMORY.md` (user preferences, past feedback, project context).
 
 **Use `.agent/INDEX.md` as router** — for anything beyond what's in this file (full route table, scoring detail, file maps, troubleshooting), open the relevant `.agent/<area>.md`. Don't re-derive by reading source files.
 
