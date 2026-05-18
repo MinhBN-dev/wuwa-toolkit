@@ -102,7 +102,7 @@ Containers in this setup:
 | Container | Port | Role |
 |---|---|---|
 | `wuwa-toolkit-frontend` | `${PORT:-80}` → 80 | nginx — serves static React build, proxies `/api` to backend |
-| `wuwa-toolkit-backend` | internal `:8001` | FastAPI + uvicorn |
+| `wuwa-toolkit-backend` | internal `:8000` | FastAPI + uvicorn |
 | `wuwa-toolkit-postgres` | internal `:5432` | PostgreSQL 16 (data in `postgres_data` volume) |
 
 > **Advanced:** If you already have a shared PostgreSQL on this machine, you can disable the bundled one with a `docker-compose.override.yml`. See [docs/](docs/) or check `.gitignore` for the override pattern.
@@ -146,10 +146,10 @@ cp .env.example .env
 # Optionally set GOOGLE_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY for OCR fallbacks
 # ALLOWED_ORIGINS=http://localhost:5174   (so the frontend can call the API)
 
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Backend is at `http://localhost:8001` · Swagger UI: `http://localhost:8001/docs`.
+Backend is at `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`.
 
 On first start the backend creates tables and seeds the character roster automatically.
 
@@ -161,7 +161,7 @@ npm install
 npm run dev
 ```
 
-Frontend is at `http://localhost:5174`. Vite proxies `/api` → `http://localhost:8001` automatically (no nginx in dev mode).
+Frontend is at `http://localhost:5174`. Vite proxies `/api` → `http://localhost:8000` automatically (no nginx in dev mode).
 
 ### 4. Type-check / build
 

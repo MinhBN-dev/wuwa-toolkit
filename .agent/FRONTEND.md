@@ -5,7 +5,7 @@
 ```
 frontend/
 ├── index.html
-├── vite.config.ts       Proxy /api + /uploads → localhost:8001
+├── vite.config.ts       Proxy /api + /uploads → localhost:8000
 ├── tailwind.config.ts   Custom colors: ww-*, tier-*, element-*
 ├── nginx.conf           Production nginx config (served inside Docker container)
 ├── Dockerfile           Multi-stage: node build → nginx:alpine serve
