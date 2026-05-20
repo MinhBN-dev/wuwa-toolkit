@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  wuwa-toolkit-backend:
     build: ./backend
     container_name: wuwa-toolkit-backend
     restart: unless-stopped
@@ -38,14 +38,14 @@ services:
     networks:
       - internal
 
-  frontend:
+  wuwa-toolkit-frontend:
     build: ./frontend
     container_name: wuwa-toolkit-frontend
     restart: unless-stopped
     ports:
       - "${PORT:-80}:80"
     depends_on:
-      - backend
+      - wuwa-toolkit-backend
     networks:
       - internal
 

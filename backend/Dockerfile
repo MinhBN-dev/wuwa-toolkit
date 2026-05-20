@@ -17,9 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download EasyOCR English model so first request is instant
-# Models land in /root/.EasyOCR/ (~100 MB detection + ~40 MB recognition)
+# Warm up local OCR engines so the first request is instant.
+#   RapidOCR — ONNX models ship inside the wheel (no download); this just loads them.
+#   EasyOCR  — downloads English models into /root/.EasyOCR/ (~100 MB det + ~40 MB rec).
 RUN python - <<'EOF'
+from rapidocr_onnxruntime import RapidOCR
+RapidOCR()
+print("RapidOCR models ready.")
 import easyocr
 easyocr.Reader(['en'], gpu=False, verbose=False, download_enabled=True)
 print("EasyOCR models ready.")
@@ -29,5 +33,5 @@ COPY . .
 
 RUN mkdir -p /app/uploads /app/data
 
-EXPOSE 8001
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

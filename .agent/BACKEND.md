@@ -3,7 +3,7 @@
 > Source of truth cho scoring algorithm, dedup, data flow, API surface.
 
 ## Tech Stack
-FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · EasyOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
+FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · OCR: RapidOCR → EasyOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
 
 ## File Map
 
@@ -31,7 +31,7 @@ backend/
     │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
     │   └── convene.py    Convene tracker: /convene/import|players|stats|history
     ├── services/
-    │   ├── ocr_service.py     OCR pipeline (EasyOCR + cloud fallbacks)
+    │   ├── ocr_service.py     OCR pipeline (RapidOCR + EasyOCR local + cloud fallbacks)
     │   ├── scoring_service.py EVC weighted scoring algorithm
     │   └── convene_service.py WuWa gacha API client (URL parse + fetch_all_pools)
     └── data/
@@ -200,15 +200,17 @@ Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterR
 
 ### ocr_service.py
 Provider priority (local-first):
-1. **EasyOCR** (local, no API key) — primary, always tried first; ~140 MB models pre-downloaded trong Docker image
-2. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
-3. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
-4. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
+1. **RapidOCR** (local ONNX, no API key) — primary; ONNX models ship inside the `rapidocr-onnxruntime` wheel (no download), warmed up at Docker build
+2. **EasyOCR** (local, no API key) — secondary; ~140 MB models pre-downloaded trong Docker image
+3. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
+4. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
+5. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
 
+- **Image preprocessing** (`_prep_local_image`): robust decode via `cv2.IMREAD_UNCHANGED` → normalize 16-bit/float → 8-bit, composite alpha over white, expand grayscale → upscale-if-small (shorter side ≥ 720px) → grayscale + CLAHE. Fixes the "screenshot-from-game reads wrong but re-cropped-from-website reads fine" bug (raw game screenshots can have odd colorspace / bit-depth / alpha). API providers get a normalized PNG (`_normalized_png_bytes`) instead of the raw bytes.
+- Local engines (RapidOCR, EasyOCR) share `_parse_ocr_rows(results, provider=, confidence=)` — same `(bbox, text, conf)` block shape; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
 - 429/quota errors skip ngay sang model kế; 5xx retry tối đa 3×
 - KHÔNG dùng `gemini-2.0-flash` — rate limit = 0 trên project mới
-- Returns: `echo_name`, `echo_set`, `echo_element`, `echo_cost`, **`main_stat_type`**, **`main_stat_value`**, `sub_stats` (≤5)
-- EasyOCR: detect main stat qua `_SUBSTAT_MAX_VAL` ceiling; map raw text → standard stat names
+- Returns: `echo_name`, `echo_set`, `echo_element`, `echo_cost`, **`main_stat_type`**, **`main_stat_value`**, `sub_stats` (≤5), `provider`, `confidence`
 - Cloud providers: structured JSON extraction qua `EXTRACTION_PROMPT`
 
 ### convene_service.py

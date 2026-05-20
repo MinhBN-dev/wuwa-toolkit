@@ -27,16 +27,16 @@ The detailed docs are intentionally **the** source of truth — don't duplicate 
 ### Local dev (no Docker)
 
 ```bash
-# Backend — port 8001, hot-reload
+# Backend — port 8000, hot-reload (override --port nếu chạy đồng thời BE khác)
 cd backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Frontend — port 5174
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 cd frontend && npm run dev
 ```
 
-URLs: frontend `http://localhost:5174`, backend `http://localhost:8001/api/v1`, Swagger `http://localhost:8001/docs`.
+URLs: frontend `http://localhost:5174`, backend `http://localhost:8000/api/v1`, Swagger `http://localhost:8000/docs`.
 
 ### Docker (production)
 
@@ -47,7 +47,7 @@ docker compose logs -f <service>
 
 Production URL: `http://wuwa-toolkit.local` (Avahi mDNS). LAN-wide auto-resolve only works when the home modem doesn't filter multicast; modems that do (e.g. Viettel DASAN H646GM-V) require a manual `hosts` entry on each LAN client — see `.agent/DEVOPS.md`.
 
-`docker-compose.override.yml` is gitignored — used on this machine to swap to `shared-postgres` and join the LAN nginx-proxy. Public users don't need it. Detail in `.agent/DEVOPS.md`.
+`docker-compose.override.yml` is gitignored — used on this machine to swap to `shared-postgres` and join the LAN nginx-proxy (via `edge_net`/`db_net`). Public users don't need it. Service & container names: `wuwa-toolkit-backend`/`wuwa-toolkit-frontend` (consistent kebab prefix across all projects on this machine). Detail in `.agent/DEVOPS.md`.
 
 ### Database
 
@@ -82,7 +82,7 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **Set page must use `POST /score/calculate-set`** — never call single-echo scoring 5×. ER state is shared sequentially across echoes; arithmetic mean of single scores diverges from EVC.
 
-- **OCR is local-first** — EasyOCR (no API key, ~140 MB models in image) → Gemini `gemini-2.5-flash` → OpenAI → Anthropic. **Never use `gemini-2.0-flash`** (rate limit = 0 on new projects).
+- **OCR is local-first** — RapidOCR (ONNX, models bundled in wheel) → EasyOCR (no API key, ~140 MB models in image) → Gemini `gemini-2.5-flash` → OpenAI → Anthropic. Local engines run on a preprocessed image (`_prep_local_image`: robust decode → upscale-if-small → grayscale+CLAHE) which fixes raw-game-screenshot colorspace/bit-depth quirks; API providers get a normalized PNG. **Never use `gemini-2.0-flash`** (rate limit = 0 on new projects).
 
 - **Character build status is server-side** — `character_profiles` table, accessed via `GET/PUT /api/v1/character-profiles`. `Characters.tsx` auto-migrates from localStorage once on first load when server is empty.
 

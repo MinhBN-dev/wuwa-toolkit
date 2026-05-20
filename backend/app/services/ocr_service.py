@@ -2,14 +2,20 @@
 OCR service — local-first with API fallback.
 
 Provider priority:
-  1. EasyOCR (local, no API key, always available)
-  2. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
-  3. OpenAI          (gpt-4o-mini → gpt-4o)
-  4. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
+  1. RapidOCR (local ONNX, no API key, always available)
+  2. EasyOCR  (local, no API key, always available)
+  3. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
+  4. OpenAI          (gpt-4o-mini → gpt-4o)
+  5. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
 
-EasyOCR is tried first. If it returns no sub-stats (bad image quality, unclear layout),
-API providers are attempted in order. 429/quota errors skip to next model immediately.
-503/5xx errors retry up to 3× with backoff before falling back.
+Local engines run on a preprocessed image (robust decode → upscale-if-small →
+grayscale + CLAHE contrast), which fixes the "screenshot from game reads wrong but
+re-cropped from the website reads fine" class of bugs (odd colorspace / bit-depth /
+alpha channel in raw game screenshots). API providers get a normalized PNG.
+
+RapidOCR is tried first; if it (and then EasyOCR) returns no sub-stats, API providers
+are attempted in order. 429/quota errors skip to next model immediately. 503/5xx errors
+retry up to 3× with backoff before falling back.
 """
 import asyncio
 import base64
@@ -123,6 +129,78 @@ def read_image_bytes(image_path: str) -> tuple[bytes, str]:
 
 def _to_b64(image_bytes: bytes) -> str:
     return base64.b64encode(image_bytes).decode()
+
+
+# ── Image preprocessing ───────────────────────────────────────────────────────
+def _decode_cv_image(image_bytes: bytes):
+    """
+    Robust decode → BGR uint8 ndarray.
+
+    Handles cases a plain cv2.imdecode(IMREAD_COLOR) mangles:
+      - 16-bit / float PNG (game screenshots in HDR or wide-gamut) → normalized to 8-bit
+      - alpha channel → composited over white
+      - grayscale → expanded to 3 channels
+    """
+    import numpy as np
+    import cv2
+
+    arr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise ValueError("Không decode được ảnh")
+
+    if img.dtype != np.uint8:
+        img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    if img.ndim == 2:
+        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    if img.shape[2] == 1:
+        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    if img.shape[2] == 4:
+        bgr = img[:, :, :3].astype(np.float32)
+        alpha = img[:, :, 3:4].astype(np.float32) / 255.0
+        return (bgr * alpha + 255.0 * (1.0 - alpha)).astype(np.uint8)
+    return img
+
+
+def _upscale_if_small(img, min_side: int = 720):
+    """Upscale (cubic) so the shorter side is at least `min_side`px — helps OCR on small crops."""
+    import cv2
+
+    h, w = img.shape[:2]
+    short = min(h, w)
+    if short and short < min_side:
+        f = min(3.0, min_side / short)
+        img = cv2.resize(img, None, fx=f, fy=f, interpolation=cv2.INTER_CUBIC)
+    return img
+
+
+def _enhance_for_ocr(img):
+    """Grayscale + CLAHE local-contrast boost — input for the local OCR engines."""
+    import cv2
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    return clahe.apply(gray)
+
+
+def _prep_local_image(image_bytes: bytes):
+    """Full preprocess pipeline for local OCR engines. Returns a 2-D uint8 ndarray, or None."""
+    try:
+        return _enhance_for_ocr(_upscale_if_small(_decode_cv_image(image_bytes)))
+    except Exception:
+        return None
+
+
+def _normalized_png_bytes(image_bytes: bytes) -> bytes | None:
+    """Re-encode through the robust decoder to a clean PNG — for API vision providers."""
+    import cv2
+
+    try:
+        ok, buf = cv2.imencode(".png", _upscale_if_small(_decode_cv_image(image_bytes)))
+        return buf.tobytes() if ok else None
+    except Exception:
+        return None
 
 
 # ── Response parser ───────────────────────────────────────────────────────────
@@ -372,9 +450,9 @@ _NOISE_ROW_RE = re.compile(
 )
 
 
-def _parse_easyocr_results(results: list) -> dict:
+def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) -> dict:
     """
-    Parse EasyOCR result list into echo dict.
+    Parse a list of (bbox, text, conf) blocks (EasyOCR / RapidOCR shape) into an echo dict.
 
     Echo layout (top → bottom):
       Line 0  : Echo name
@@ -384,7 +462,7 @@ def _parse_easyocr_results(results: list) -> dict:
       Lines 5-9: 5 sub-stats → EXTRACT
     """
     if not results:
-        raise ValueError("EasyOCR: không detect được text nào")
+        raise ValueError(f"{provider}: không detect được text nào")
 
     # Sort all blocks by vertical center
     sorted_r = sorted(results, key=lambda r: (r[0][0][1] + r[0][2][1]) / 2)
@@ -496,30 +574,24 @@ def _parse_easyocr_results(results: list) -> dict:
         "main_stat_type": main_stat_type,
         "main_stat_value": main_stat_value,
         "sub_stats": sub_stats[:5],
-        "confidence": 0.6,
+        "confidence": confidence,
         "raw_text": '\n'.join(row_texts),
-        "provider": "EasyOCR (local)",
+        "provider": provider,
     }
 
 
-def _easyocr_call_sync(image_bytes: bytes) -> dict:
-    import numpy as np
-    import cv2
-
-    img_array = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("Không decode được ảnh")
-
+def _easyocr_call_sync(local_img) -> dict:
     reader = _get_easyocr_reader()
-    results = reader.readtext(img)
-    return _parse_easyocr_results(results)
+    results = reader.readtext(local_img)
+    return _parse_ocr_rows(results, provider="EasyOCR (local)", confidence=0.6)
 
 
-async def _try_easyocr(image_bytes: bytes, _mime_type: str) -> dict | None:
-    """Local OCR fallback — no API key required. First run downloads ~500 MB models."""
+async def _try_easyocr(local_img) -> dict | None:
+    """Local OCR — no API key required. `local_img`: preprocessed 2-D ndarray (or None)."""
+    if local_img is None:
+        return None
     try:
-        result = await asyncio.to_thread(_easyocr_call_sync, image_bytes)
+        result = await asyncio.to_thread(_easyocr_call_sync, local_img)
         if result and result.get("sub_stats"):
             return result
         return None
@@ -529,36 +601,90 @@ async def _try_easyocr(image_bytes: bytes, _mime_type: str) -> dict | None:
         return None
 
 
+# ── Provider: RapidOCR (local ONNX, no API needed) ────────────────────────────
+_rapidocr_engine = None
+
+
+def _get_rapidocr():
+    global _rapidocr_engine
+    if _rapidocr_engine is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _rapidocr_engine = RapidOCR()
+    return _rapidocr_engine
+
+
+def _rapidocr_call_sync(local_img) -> dict:
+    engine = _get_rapidocr()
+    out, _elapse = engine(local_img)
+    results = []
+    for item in (out or []):
+        box, text = item[0], item[1]
+        try:
+            conf = float(item[2])
+        except (TypeError, ValueError, IndexError):
+            conf = 0.0
+        results.append((box, text, conf))
+    return _parse_ocr_rows(results, provider="RapidOCR (local)", confidence=0.7)
+
+
+async def _try_rapidocr(local_img) -> dict | None:
+    """Local ONNX OCR — primary engine. Models ship inside the wheel (no download)."""
+    if local_img is None:
+        return None
+    try:
+        result = await asyncio.to_thread(_rapidocr_call_sync, local_img)
+        if result and result.get("sub_stats"):
+            return result
+        return None
+    except ImportError:
+        return None   # rapidocr-onnxruntime not installed
+    except Exception:
+        return None
+
+
 # ── Public entry point ────────────────────────────────────────────────────────
 async def extract_echo_stats(image_path: str) -> dict:
     """
     Extract echo sub-stats from image.
-    Tries EasyOCR (local) first; falls back to API providers if local fails.
+    Tries RapidOCR → EasyOCR (local, on a preprocessed image) first;
+    falls back to API providers (on a normalized PNG) if both local engines fail.
     """
-    image_bytes, mime_type = read_image_bytes(image_path)
+    raw_bytes, raw_mime = read_image_bytes(image_path)
 
-    # 1. Local OCR — no API key, always try first
-    result = await _try_easyocr(image_bytes, mime_type)
+    # Local engines run on a robustly-decoded, upscaled, contrast-enhanced grayscale image
+    local_img = await asyncio.to_thread(_prep_local_image, raw_bytes)
+
+    # 1. RapidOCR (local ONNX) — primary
+    result = await _try_rapidocr(local_img)
     if result is not None:
         return result
 
-    # 2. Gemini Vision
-    result = await _try_gemini(image_bytes, mime_type)
+    # 2. EasyOCR (local) — secondary
+    result = await _try_easyocr(local_img)
     if result is not None:
         return result
 
-    # 3. OpenAI Vision
-    result = await _try_openai(image_bytes, mime_type)
+    # API providers get a normalized PNG (fixes odd colorspace / bit-depth / alpha)
+    norm = await asyncio.to_thread(_normalized_png_bytes, raw_bytes)
+    api_bytes, api_mime = (norm, "image/png") if norm else (raw_bytes, raw_mime)
+
+    # 3. Gemini Vision
+    result = await _try_gemini(api_bytes, api_mime)
     if result is not None:
         return result
 
-    # 4. Anthropic Claude Vision
-    result = await _try_anthropic(image_bytes, mime_type)
+    # 4. OpenAI Vision
+    result = await _try_openai(api_bytes, api_mime)
+    if result is not None:
+        return result
+
+    # 5. Anthropic Claude Vision
+    result = await _try_anthropic(api_bytes, api_mime)
     if result is not None:
         return result
 
     raise RuntimeError(
         "Không thể đọc echo từ ảnh này. "
-        "EasyOCR không detect được sub-stats, và tất cả API providers đều không khả dụng hoặc hết quota. "
+        "RapidOCR và EasyOCR không detect được sub-stats, và tất cả API providers đều không khả dụng hoặc hết quota. "
         "Hãy thử ảnh rõ hơn hoặc kiểm tra API keys."
     )
