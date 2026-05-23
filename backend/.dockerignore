@@ -1,0 +1,25 @@
+# Python virtual envs — never copy into the image (image installs deps itself).
+# These were the cause of a 10GB image: COPY . . was baking in a 5.4GB host .venv.
+.venv/
+.venv.old/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Runtime data — mounted as named volumes at runtime, not part of the build.
+uploads/
+data/
+
+# Local-only / secrets
+.env
+.env.*
+!.env.example
+evc_status.json
+
+# VCS & editor
+.git/
+.gitignore
+.vscode/
+.idea/
