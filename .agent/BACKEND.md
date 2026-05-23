@@ -3,7 +3,7 @@
 > Source of truth cho scoring algorithm, dedup, data flow, API surface.
 
 ## Tech Stack
-FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · OCR: RapidOCR → EasyOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
+FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · OCR: RapidOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
 
 ## File Map
 
@@ -65,7 +65,7 @@ backend/
 - created_at
 
 ### ConvenePull
-- id (UUID PK), player_id (str), card_pool_type (1..7), pull_id (snowflake str)
+- id (UUID PK), player_id (str), card_pool_type (1..7), pull_id (synth timestamp id `YYYYMMDDHHMMSS-NN`)
 - name, item_type ("Resonator" / "Weapon"), quality_level (3/4/5), resource_id, count
 - time (DateTime, in-game pull time), created_at
 - UNIQUE `(player_id, card_pool_type, pull_id)` → append-only dedup on re-import
@@ -200,14 +200,18 @@ Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterR
 
 ### ocr_service.py
 Provider priority (local-first):
-1. **RapidOCR** (local ONNX, no API key) — primary; ONNX models ship inside the `rapidocr-onnxruntime` wheel (no download), warmed up at Docker build
-2. **EasyOCR** (local, no API key) — secondary; ~140 MB models pre-downloaded trong Docker image
-3. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
-4. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
-5. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
+1. **RapidOCR** (local ONNX, no API key) — the only local engine; ONNX models ship inside the `rapidocr-onnxruntime` wheel (no download), warmed up at Docker build
+2. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
+3. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
+4. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
+
+> **EasyOCR was removed** (was the #2 local engine): its `torch` dependency made the image huge and the pip step timed out on slow networks. RapidOCR alone covers the local path; `_parse_ocr_rows` is unchanged (it always handled both engines' identical block shape).
 
 - **Image preprocessing** (`_prep_local_image`): robust decode via `cv2.IMREAD_UNCHANGED` → normalize 16-bit/float → 8-bit, composite alpha over white, expand grayscale → upscale-if-small (shorter side ≥ 720px) → grayscale + CLAHE. Fixes the "screenshot-from-game reads wrong but re-cropped-from-website reads fine" bug (raw game screenshots can have odd colorspace / bit-depth / alpha). API providers get a normalized PNG (`_normalized_png_bytes`) instead of the raw bytes.
-- Local engines (RapidOCR, EasyOCR) share `_parse_ocr_rows(results, provider=, confidence=)` — same `(bbox, text, conf)` block shape; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
+- RapidOCR feeds `_parse_ocr_rows(results, provider=, confidence=)` — `(bbox, text, conf)` blocks; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
+  - **Row grouping is adaptive** — threshold = `0.6 × median text height`, not a fixed 15px. A fixed gap split single lines into two rows after the upscale step (dropped/garbled sub-stats).
+  - **`_map_stat_name` strips leading noise** (`+` bullet, icon glyphs ⚔/♥, stray symbols) before matching. Every in-game sub-stat row is prefixed with `+`; without stripping it the ambiguous stats (ATK/HP/DEF) read as `"+ atk"` failed the `^atk$` fullmatch and were silently dropped — root cause of missing ATK%/HP%/DEF% sub-stats.
+  - **Echo name = all rows ABOVE the COST row** (via `cost_idx`), filtered by `_is_name_token` (drops `+25` level badge, `COST`, single-letter skill/lock button glyphs Z/C, pure-symbol icons). Handles 2-line names; stops the Z/C buttons leaking into the name.
 - 429/quota errors skip ngay sang model kế; 5xx retry tối đa 3×
 - KHÔNG dùng `gemini-2.0-flash` — rate limit = 0 trên project mới
 - Returns: `echo_name`, `echo_set`, `echo_element`, `echo_cost`, **`main_stat_type`**, **`main_stat_value`**, `sub_stats` (≤5), `provider`, `confidence`
@@ -220,7 +224,8 @@ WuWa Convene history client (Oversea region only).
 - `parse_export_url(url)` — extracts `svr_id`, `player_id`, `record_id`, `lang` from the URL fragment (params live after `#/record?`, not in the query string). Raises `ConveneUrlError` on missing fields.
 - `fetch_pool(...)` — POST to `https://gmserver-api.aki-game2.net/gacha/record/query` with `Origin`/`Referer` matching the in-game webview. Returns the raw `data` array.
 - `fetch_all_pools(parsed)` — sequentially queries all 7 `cardPoolType` values; pools that fail (legitimately empty / locked) return `[]` instead of raising.
-- `normalize_pull(raw, ...)` — converts API record to DB-ready dict; uses the `id` snowflake as the dedup key.
+- `synth_pull_id(time_str, within_second)` — builds the stable dedup id (see below). Used by both `fetch_all_pools` and the one-off migration.
+- `normalize_pull(raw, *, player_id, card_pool_type, pull_id)` — converts API record to DB-ready dict; the caller passes the `synth_pull_id` value.
 
 `POOL_TYPES`: `[(1, "Featured Resonator Convene"), (2, "Featured Weapon Convene"), (3, "Standard Resonator Convene"), (4, "Standard Weapon Convene"), (5, "Beginner Convene"), (6, "Beginner's Choice Convene"), (7, "Beginner's Choice Convene (Selector)")]`.
 
@@ -231,7 +236,9 @@ The export URL `record_id` token expires after a short time — re-export from i
 - Script auto-discovers WuWa install path (registry → firewall rules → common drive paths), greps `Client.log` for the gacha URL, copies to clipboard.
 - Game must be running with Convene → History opened at least once (URL only appears in log after that webview loads).
 
-**Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate `pull_id = f"{sequence:06d}"` where sequence is the index in the API response **reversed** (oldest = 0). Stable across re-syncs because the API response is deterministic and new pulls only append to the high end of the sequence. Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
+**Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate one. `pull_id = "{YYYYMMDDHHMMSS}-{NN}"` (`synth_pull_id`): the pull's timestamp + a counter for items sharing that exact second (a 10-pull = 10 items in one second, NN = 00..09). Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
+
+> ⚠️ **Why timestamp-anchored, not positional** (fixed 2026-05-24): the API returns a **sliding window** of recent pulls — old pulls age out over time. The previous scheme `f"{idx:06d}"` (oldest-first positional index) was therefore unstable: once the oldest pull dropped out of the window, every remaining pull's index shifted by one, so genuinely-new pulls reused ids that already existed in the DB and got silently dropped by `ON CONFLICT` → import reported "up to date, no new pulls" even right after rolling, and the DB accumulated more rows than the API window while its newest `time` lagged. Timestamp-anchored ids depend only on the pull itself, so they're window-independent. **One-off migration** of pre-existing positional ids: per `(player_id, card_pool_type)`, order rows by old `pull_id` asc (= oldest-first), group by `time`, re-number within each second via `synth_pull_id`. Old positional ids (6 digits) never collide with new ids (contain `-`), so the in-place UPDATE is safe. Backup table: `convene_pulls_backup_premig`.
 
 **50/50 win rate (Pool 1 only)** — WuWa rule: a standard-pool 5★ ("loss") guarantees the next 5★ is featured. That guaranteed pull is NOT a 50/50 attempt and must be excluded from win rate. Algorithm walks pool 1 pulls oldest-first with a `guaranteed_next` flag; only counts pulls where the flag was False. `STANDARD_5_RESONATORS = {Calcharo, Encore, Jianxin, Lingyang, Verina}`. `ASTRITES_PER_PULL = 160`.
 

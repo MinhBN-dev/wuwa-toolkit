@@ -41,8 +41,8 @@ frontend/
 ```
 
 ## Routes
-- `/`            → Home (Analyze)
-- `/set`         → Full Set optimizer
+- `/`            → Home — nav label **"Echo Score"** (single-echo analysis)
+- `/set`         → Full Set optimizer — nav label **"Full Score"**
 - `/saved`       → Saved Echoes + Saved Sets
 - `/characters`  → Character roster with build status tracking
 - `/convene`     → Convene (gacha) history tracker — import via in-game export URL
@@ -118,7 +118,7 @@ Each page uses the same shared classes (panel-tech / section-label / readout / b
 | Page | Hero icon | Distinctive treatment |
 |---|---|---|
 | `/` Home | (none) | 2-col workspace; element-colored char chip top-right; big tier-colored score number with glow |
-| `/set` Full Set | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo |
+| `/set` Full Score | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo; per-slot ✎ opens manual-entry dialog |
 | `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
 | `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait has conic-gradient element ring + status-colored circular border |
 
@@ -137,9 +137,11 @@ slots: SlotState[5]         // mỗi slot: echoName, echoCost, mainStatType, mai
 selectedChar: Character | null
 totalER: string
 pasteTarget: number         // index slot sẽ nhận paste (Crosshair icon)
+editingSlot: number | null  // slot đang mở manual-entry dialog (Pencil icon)
 saveName: string
 ```
 
+- **Manual entry**: mỗi slot có nút ✎ (Pencil) → mở dialog dùng lại `StatsEditor` (echo name, cost, sub-stats) cho khi OCR đọc không được. Sửa stat/meta → reset `scoreResult` của slot. (Trang Home đã có `StatsEditor` inline sẵn nên không cần thêm.)
 - **Paste**: clipboard → slot tại `pasteTarget` → auto advance `(pasteTarget+1)%5`
 - **Score all**: `handleCalculateAll` → `calculateSetScore` (1 call duy nhất, EVC full-mode) → cập nhật scoreResult từng slot
 - **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → `saveEchoSet` với slots có `echo_id`

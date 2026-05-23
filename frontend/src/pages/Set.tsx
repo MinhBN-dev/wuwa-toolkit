@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Loader2, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair, Layers } from 'lucide-react'
+import { Upload, Loader2, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair, Layers, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
+import StatsEditor from '../components/StatsEditor'
 import { snapToRoll, defaultSubStatsForChar } from '../utils/echoHelpers'
 
 const TIER_COLOR: Record<string, string> = {
@@ -50,9 +51,10 @@ interface SlotProps {
   onSelectTarget: () => void
   onFile: (file: File) => void
   onClear: () => void
+  onEdit: () => void
 }
 
-function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onFile, onClear }: SlotProps) {
+function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onFile, onClear, onEdit }: SlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -94,6 +96,13 @@ function EchoSlot({ index, slot, charWeights, isPasteTarget, onSelectTarget, onF
               {slot.scoreResult.score_percent.toFixed(1)}
             </span>
           )}
+          <button
+            onClick={onEdit}
+            title="Enter / edit sub-stats manually"
+            className="text-ww-muted hover:text-ww-cyan transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
           {(slot.imageUrl || slot.subStats.some(s => s.value > 0)) && (
             <button onClick={onClear} className="text-ww-muted hover:text-red-400 transition-colors">
               <X className="w-3.5 h-3.5" />
@@ -297,6 +306,7 @@ export default function SetPage() {
   const [slots, setSlots] = useState<SlotState[]>(() => Array.from({ length: 5 }, () => emptySlot()))
   const [calcLoading, setCalcLoading] = useState(false)
   const [pasteTarget, setPasteTarget] = useState<number>(0)
+  const [editingSlot, setEditingSlot] = useState<number | null>(null)
   const [saveName, setSaveName] = useState('')
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [showLoadPanel, setShowLoadPanel] = useState(false)
@@ -740,6 +750,7 @@ export default function SetPage() {
             onSelectTarget={() => setPasteTarget(idx)}
             onFile={file => processFile(idx, file)}
             onClear={() => updateSlot(idx, emptySlot(selectedChar?.name, gameData?.character_weights))}
+            onEdit={() => setEditingSlot(idx)}
           />
         ))}
       </div>
@@ -750,6 +761,43 @@ export default function SetPage() {
             ◆
           </div>
           <p className="text-ww-muted font-display uppercase tracking-[0.15em]">Select a Resonator to begin set calibration</p>
+        </div>
+      )}
+
+      {/* Manual sub-stat entry dialog — for when OCR can't read a screenshot */}
+      {editingSlot !== null && selectedChar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setEditingSlot(null)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="panel-tech p-4 flex items-center justify-between">
+              <h3 className="section-label flex items-center gap-2">
+                <Pencil className="w-4 h-4" /> Slot {editingSlot + 1} · Manual Entry
+              </h3>
+              <button onClick={() => setEditingSlot(null)} className="text-ww-muted hover:text-ww-cyan">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <StatsEditor
+              echoInfo={{ echo_name: slots[editingSlot].echoName, echo_cost: slots[editingSlot].echoCost }}
+              subStats={slots[editingSlot].subStats}
+              charWeights={charWeights ?? undefined}
+              subStatRolls={subStatRolls}
+              onEchoInfoChange={info =>
+                updateSlot(editingSlot, { echoName: info.echo_name, echoCost: info.echo_cost, scoreResult: null })
+              }
+              onSubStatsChange={stats => updateSlot(editingSlot, { subStats: stats, scoreResult: null })}
+            />
+
+            <button onClick={() => setEditingSlot(null)} className="btn-primary w-full">
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>

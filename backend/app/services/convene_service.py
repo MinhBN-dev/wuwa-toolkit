@@ -5,6 +5,7 @@ Region: Oversea only (gmserver-api.aki-game2.net).
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse, parse_qs
@@ -106,26 +107,40 @@ async def fetch_pool(
     return body.get("data") or []
 
 
+def synth_pull_id(time_str: str, within_second: int) -> str:
+    """Stable, window-independent synthetic pull id: ``<YYYYMMDDHHMMSS>-<NN>``.
+
+    The WuWa gacha API gives no per-pull id AND only returns a *sliding window*
+    of recent pulls (old ones age out over time). A positional index is therefore
+    unstable: once the oldest pull drops out of the window, every remaining pull's
+    index shifts, so genuinely-new pulls reuse ids that already exist and get
+    silently dropped by the ON CONFLICT dedup ("up to date, no new pulls" even
+    after rolling). Anchoring the id to the pull's own timestamp plus its order
+    within that exact second (a 10-pull shares one timestamp) yields an id that
+    never changes as the window slides.
+
+    `within_second` must be assigned in oldest-first order so it matches across
+    re-syncs (and the one-off migration of pre-existing positional ids).
+    """
+    digits = re.sub(r"\D", "", time_str or "")
+    return f"{digits or '00000000000000'}-{within_second:02d}"
+
+
 def normalize_pull(
     raw: dict[str, Any],
     *,
     player_id: str,
     card_pool_type: int,
-    sequence: int,
+    pull_id: str,
 ) -> dict[str, Any]:
-    """Game API record → DB-ready dict.
-
-    The WuWa gacha API does NOT provide a unique id per pull, so we synthesize
-    one using a per-pool sequence number counted from the oldest pull. This is
-    stable across syncs because the API response is deterministic and we
-    iterate oldest-first (see fetch_all_pools).
-    """
+    """Game API record → DB-ready dict. `pull_id` is the stable id from
+    `synth_pull_id` (computed by the caller, which knows the oldest-first order)."""
     time_str = raw.get("time")
     parsed_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S") if time_str else datetime.utcnow()
     return {
         "player_id": player_id,
         "card_pool_type": card_pool_type,
-        "pull_id": f"{sequence:06d}",  # zero-padded so string-sort matches numeric
+        "pull_id": pull_id,
         "name": str(raw.get("name", "")),
         "item_type": str(raw.get("resourceType") or raw.get("itemType") or ""),
         "quality_level": int(raw.get("qualityLevel", 0)),
@@ -155,17 +170,23 @@ async def fetch_all_pools(parsed: dict[str, str]) -> dict[int, list[dict[str, An
                 # Pool may legitimately have no data / be locked — keep going
                 out[pool_type] = []
                 continue
-            # API returns newest-first. Reverse so index 0 = oldest pull;
-            # this keeps each pull's synthetic id stable across future syncs
-            # (new pulls only append to the high end of the sequence).
+            # API returns newest-first. Reverse so we walk oldest-first, assigning
+            # each pull a stable timestamp-anchored id (with a per-second counter
+            # for the items of a 10-pull, which share one timestamp).
             oldest_first = list(reversed(raw_list))
-            out[pool_type] = [
-                normalize_pull(
-                    r,
-                    player_id=parsed["player_id"],
-                    card_pool_type=pool_type,
-                    sequence=idx,
+            seen_per_second: dict[str, int] = {}
+            pool_pulls: list[dict[str, Any]] = []
+            for r in oldest_first:
+                tstr = str(r.get("time") or "")
+                i = seen_per_second.get(tstr, 0)
+                seen_per_second[tstr] = i + 1
+                pool_pulls.append(
+                    normalize_pull(
+                        r,
+                        player_id=parsed["player_id"],
+                        card_pool_type=pool_type,
+                        pull_id=synth_pull_id(tstr, i),
+                    )
                 )
-                for idx, r in enumerate(oldest_first)
-            ]
+            out[pool_type] = pool_pulls
     return out
