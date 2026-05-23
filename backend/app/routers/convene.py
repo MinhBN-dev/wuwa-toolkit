@@ -137,15 +137,19 @@ async def get_history(
     full_q = full_q.order_by(ConvenePull.card_pool_type.asc(), ConvenePull.time.asc(), ConvenePull.pull_id.asc())
     all_pulls = (await db.execute(full_q)).scalars().all()
 
-    # Walk per pool, compute pity-at-pull for each
+    # Walk per pool, compute pity-at-pull AND chronological pull number for each.
+    # pull_no is the 1-based position within the pool's full history (incl. 3★),
+    # which replaces the old positional pull_id now that pull_id is a timestamp string.
     pity_map: dict[tuple[int, str], int] = {}
+    seq_map: dict[tuple[int, str], int] = {}
     by_pool: dict[int, list[ConvenePull]] = {}
     for p in all_pulls:
         by_pool.setdefault(p.card_pool_type, []).append(p)
     for pool_pulls in by_pool.values():
         pity_5 = 0
         pity_4 = 0
-        for p in pool_pulls:
+        for idx, p in enumerate(pool_pulls, start=1):
+            seq_map[(p.card_pool_type, p.pull_id)] = idx
             pity_5 += 1
             pity_4 += 1
             if p.quality_level == 5:
@@ -177,6 +181,7 @@ async def get_history(
             time=r.time,
             card_pool_type=r.card_pool_type,
             pity=pity_map.get((r.card_pool_type, r.pull_id)),
+            pull_no=seq_map.get((r.card_pool_type, r.pull_id)),
         )
         for r in page
     ]

@@ -67,7 +67,7 @@ frontend/
 | `ConveneImportResponse` | player_id, svr_id, pools[], total_added, total_fetched |
 | `ConvenePoolStats` | pool_type, pool_label, total, 5★/4★ counts, pity_5, pity_4, avg_pity_5, five_stars[] |
 | `ConveneStatsResponse` | player_id, last_synced_at, pools[] |
-| `ConvenePullResponse` | pull_id, name, item_type, quality_level, time, pity? |
+| `ConvenePullResponse` | pull_id, name, item_type, quality_level, time, pity?, pull_no? (server-computed "Pull No.") |
 | `ConvenePlayerSummary` | player_id, total_pulls, last_pull_time |
 
 ## API Calls (api.ts)

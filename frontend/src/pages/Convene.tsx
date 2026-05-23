@@ -714,7 +714,7 @@ export default function ConvenePage() {
                     <tr><td colSpan={4} className="text-center py-8 text-ww-muted italic">No pulls match.</td></tr>
                   ) : (
                     history.map(p => {
-                      const pullNo = Number(p.pull_id) + 1   // 0-based stored → 1-based display
+                      const pullNo = p.pull_no ?? ''   // server-computed 1-based chronological no.
                       const nameColor = RARITY_NAME_COLOR[p.quality_level] ?? 'text-ww-text'
                       return (
                         <tr key={`${p.card_pool_type}-${p.pull_id}`} className="border-b border-ww-border/40 hover:bg-ww-cyan/5">

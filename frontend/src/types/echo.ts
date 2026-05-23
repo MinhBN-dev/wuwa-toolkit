@@ -179,6 +179,7 @@ export interface ConvenePullResponse {
   time: string
   pity?: number | null
   card_pool_type?: number | null
+  pull_no?: number | null
 }
 
 export interface ConveneHistoryResponse {
