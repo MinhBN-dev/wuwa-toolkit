@@ -85,8 +85,9 @@ class EchoSet(Base):
 class ConvenePull(Base):
     """One gacha pull recorded from in-game Convene History.
 
-    Dedup key: (player_id, card_pool_type, pull_id) — pull_id is the snowflake
-    string returned by the WuWa gacha API; unique per player+pool.
+    Dedup key: (player_id, card_pool_type, pull_id) — the WuWa gacha API gives no
+    per-pull id, so pull_id is synthesized as a stable timestamp-anchored string
+    (`synth_pull_id`: <YYYYMMDDHHMMSS>-<NN>); unique per player+pool.
     """
     __tablename__ = "convene_pulls"
     __table_args__ = (

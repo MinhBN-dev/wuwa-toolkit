@@ -65,7 +65,7 @@ backend/
 - created_at
 
 ### ConvenePull
-- id (UUID PK), player_id (str), card_pool_type (1..7), pull_id (snowflake str)
+- id (UUID PK), player_id (str), card_pool_type (1..7), pull_id (synth timestamp id `YYYYMMDDHHMMSS-NN`)
 - name, item_type ("Resonator" / "Weapon"), quality_level (3/4/5), resource_id, count
 - time (DateTime, in-game pull time), created_at
 - UNIQUE `(player_id, card_pool_type, pull_id)` → append-only dedup on re-import
@@ -224,7 +224,8 @@ WuWa Convene history client (Oversea region only).
 - `parse_export_url(url)` — extracts `svr_id`, `player_id`, `record_id`, `lang` from the URL fragment (params live after `#/record?`, not in the query string). Raises `ConveneUrlError` on missing fields.
 - `fetch_pool(...)` — POST to `https://gmserver-api.aki-game2.net/gacha/record/query` with `Origin`/`Referer` matching the in-game webview. Returns the raw `data` array.
 - `fetch_all_pools(parsed)` — sequentially queries all 7 `cardPoolType` values; pools that fail (legitimately empty / locked) return `[]` instead of raising.
-- `normalize_pull(raw, ...)` — converts API record to DB-ready dict; uses the `id` snowflake as the dedup key.
+- `synth_pull_id(time_str, within_second)` — builds the stable dedup id (see below). Used by both `fetch_all_pools` and the one-off migration.
+- `normalize_pull(raw, *, player_id, card_pool_type, pull_id)` — converts API record to DB-ready dict; the caller passes the `synth_pull_id` value.
 
 `POOL_TYPES`: `[(1, "Featured Resonator Convene"), (2, "Featured Weapon Convene"), (3, "Standard Resonator Convene"), (4, "Standard Weapon Convene"), (5, "Beginner Convene"), (6, "Beginner's Choice Convene"), (7, "Beginner's Choice Convene (Selector)")]`.
 
@@ -235,7 +236,9 @@ The export URL `record_id` token expires after a short time — re-export from i
 - Script auto-discovers WuWa install path (registry → firewall rules → common drive paths), greps `Client.log` for the gacha URL, copies to clipboard.
 - Game must be running with Convene → History opened at least once (URL only appears in log after that webview loads).
 
-**Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate `pull_id = f"{sequence:06d}"` where sequence is the index in the API response **reversed** (oldest = 0). Stable across re-syncs because the API response is deterministic and new pulls only append to the high end of the sequence. Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
+**Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate one. `pull_id = "{YYYYMMDDHHMMSS}-{NN}"` (`synth_pull_id`): the pull's timestamp + a counter for items sharing that exact second (a 10-pull = 10 items in one second, NN = 00..09). Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
+
+> ⚠️ **Why timestamp-anchored, not positional** (fixed 2026-05-24): the API returns a **sliding window** of recent pulls — old pulls age out over time. The previous scheme `f"{idx:06d}"` (oldest-first positional index) was therefore unstable: once the oldest pull dropped out of the window, every remaining pull's index shifted by one, so genuinely-new pulls reused ids that already existed in the DB and got silently dropped by `ON CONFLICT` → import reported "up to date, no new pulls" even right after rolling, and the DB accumulated more rows than the API window while its newest `time` lagged. Timestamp-anchored ids depend only on the pull itself, so they're window-independent. **One-off migration** of pre-existing positional ids: per `(player_id, card_pool_type)`, order rows by old `pull_id` asc (= oldest-first), group by `time`, re-number within each second via `synth_pull_id`. Old positional ids (6 digits) never collide with new ids (contain `-`), so the in-place UPDATE is safe. Backup table: `convene_pulls_backup_premig`.
 
 **50/50 win rate (Pool 1 only)** — WuWa rule: a standard-pool 5★ ("loss") guarantees the next 5★ is featured. That guaranteed pull is NOT a 50/50 attempt and must be excluded from win rate. Algorithm walks pool 1 pulls oldest-first with a `guaranteed_next` flag; only counts pulls where the flag was False. `STANDARD_5_RESONATORS = {Calcharo, Encore, Jianxin, Lingyang, Verina}`. `ASTRITES_PER_PULL = 160`.
 
