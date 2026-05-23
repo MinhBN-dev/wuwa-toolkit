@@ -3,7 +3,7 @@
 > Source of truth cho scoring algorithm, dedup, data flow, API surface.
 
 ## Tech Stack
-FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · OCR: RapidOCR → EasyOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
+FastAPI (Python 3.12) · SQLAlchemy async + asyncpg · PostgreSQL 16 · OCR: RapidOCR (local) → Gemini → OpenAI → Anthropic fallback chain · TanStack Query consumed bởi frontend.
 
 ## File Map
 
@@ -200,14 +200,15 @@ Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterR
 
 ### ocr_service.py
 Provider priority (local-first):
-1. **RapidOCR** (local ONNX, no API key) — primary; ONNX models ship inside the `rapidocr-onnxruntime` wheel (no download), warmed up at Docker build
-2. **EasyOCR** (local, no API key) — secondary; ~140 MB models pre-downloaded trong Docker image
-3. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
-4. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
-5. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
+1. **RapidOCR** (local ONNX, no API key) — the only local engine; ONNX models ship inside the `rapidocr-onnxruntime` wheel (no download), warmed up at Docker build
+2. **Gemini** gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro (`GOOGLE_API_KEY`)
+3. **OpenAI** gpt-4o-mini → gpt-4o (`OPENAI_API_KEY`)
+4. **Anthropic** claude-haiku-4-5 → claude-sonnet-4-6 (`ANTHROPIC_API_KEY`)
+
+> **EasyOCR was removed** (was the #2 local engine): its `torch` dependency made the image huge and the pip step timed out on slow networks. RapidOCR alone covers the local path; `_parse_ocr_rows` is unchanged (it always handled both engines' identical block shape).
 
 - **Image preprocessing** (`_prep_local_image`): robust decode via `cv2.IMREAD_UNCHANGED` → normalize 16-bit/float → 8-bit, composite alpha over white, expand grayscale → upscale-if-small (shorter side ≥ 720px) → grayscale + CLAHE. Fixes the "screenshot-from-game reads wrong but re-cropped-from-website reads fine" bug (raw game screenshots can have odd colorspace / bit-depth / alpha). API providers get a normalized PNG (`_normalized_png_bytes`) instead of the raw bytes.
-- Local engines (RapidOCR, EasyOCR) share `_parse_ocr_rows(results, provider=, confidence=)` — same `(bbox, text, conf)` block shape; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
+- RapidOCR feeds `_parse_ocr_rows(results, provider=, confidence=)` — `(bbox, text, conf)` blocks; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
   - **Row grouping is adaptive** — threshold = `0.6 × median text height`, not a fixed 15px. A fixed gap split single lines into two rows after the upscale step (dropped/garbled sub-stats).
   - **`_map_stat_name` strips leading noise** (`+` bullet, icon glyphs ⚔/♥, stray symbols) before matching. Every in-game sub-stat row is prefixed with `+`; without stripping it the ambiguous stats (ATK/HP/DEF) read as `"+ atk"` failed the `^atk$` fullmatch and were silently dropped — root cause of missing ATK%/HP%/DEF% sub-stats.
   - **Echo name = all rows ABOVE the COST row** (via `cost_idx`), filtered by `_is_name_token` (drops `+25` level badge, `COST`, single-letter skill/lock button glyphs Z/C, pure-symbol icons). Handles 2-line names; stops the Z/C buttons leaking into the name.

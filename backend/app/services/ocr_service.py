@@ -3,19 +3,22 @@ OCR service — local-first with API fallback.
 
 Provider priority:
   1. RapidOCR (local ONNX, no API key, always available)
-  2. EasyOCR  (local, no API key, always available)
-  3. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
-  4. OpenAI          (gpt-4o-mini → gpt-4o)
-  5. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
+  2. Google Gemini   (gemini-2.5-flash → gemini-1.5-flash → gemini-1.5-pro)
+  3. OpenAI          (gpt-4o-mini → gpt-4o)
+  4. Anthropic Claude (claude-haiku-4-5 → claude-sonnet-4-6)
 
-Local engines run on a preprocessed image (robust decode → upscale-if-small →
+The local engine runs on a preprocessed image (robust decode → upscale-if-small →
 grayscale + CLAHE contrast), which fixes the "screenshot from game reads wrong but
 re-cropped from the website reads fine" class of bugs (odd colorspace / bit-depth /
 alpha channel in raw game screenshots). API providers get a normalized PNG.
 
-RapidOCR is tried first; if it (and then EasyOCR) returns no sub-stats, API providers
-are attempted in order. 429/quota errors skip to next model immediately. 503/5xx errors
-retry up to 3× with backoff before falling back.
+RapidOCR is tried first; if it returns no sub-stats, API providers are attempted in
+order. 429/quota errors skip to next model immediately. 503/5xx errors retry up to 3×
+with backoff before falling back.
+
+(EasyOCR was previously a second local engine but was dropped: its torch dependency
+made the Docker image huge and the build timed out on slow networks. RapidOCR alone
+covers the local path.)
 """
 import asyncio
 import base64
@@ -385,18 +388,6 @@ async def _try_anthropic(image_bytes: bytes, mime_type: str) -> dict | None:
     return None
 
 
-# ── Provider: EasyOCR (local, no API needed) ─────────────────────────────────
-_easyocr_reader = None
-
-
-def _get_easyocr_reader():
-    global _easyocr_reader
-    if _easyocr_reader is None:
-        import easyocr
-        _easyocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-    return _easyocr_reader
-
-
 # Stat name → standard display name
 # Handles OCR variants like "Crit. Rate", "CRIT RATE", "Resonance Skill DMG Bonus"
 _STAT_PATTERNS: list[tuple[str, str]] = [
@@ -482,7 +473,7 @@ def _is_name_token(tok: str) -> bool:
 
 def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) -> dict:
     """
-    Parse a list of (bbox, text, conf) blocks (EasyOCR / RapidOCR shape) into an echo dict.
+    Parse a list of (bbox, text, conf) blocks (RapidOCR shape) into an echo dict.
 
     Echo layout (top → bottom):
       Line 0  : Echo name
@@ -628,27 +619,6 @@ def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) ->
     }
 
 
-def _easyocr_call_sync(local_img) -> dict:
-    reader = _get_easyocr_reader()
-    results = reader.readtext(local_img)
-    return _parse_ocr_rows(results, provider="EasyOCR (local)", confidence=0.6)
-
-
-async def _try_easyocr(local_img) -> dict | None:
-    """Local OCR — no API key required. `local_img`: preprocessed 2-D ndarray (or None)."""
-    if local_img is None:
-        return None
-    try:
-        result = await asyncio.to_thread(_easyocr_call_sync, local_img)
-        if result and result.get("sub_stats"):
-            return result
-        return None
-    except ImportError:
-        return None   # easyocr not installed
-    except Exception:
-        return None
-
-
 # ── Provider: RapidOCR (local ONNX, no API needed) ────────────────────────────
 _rapidocr_engine = None
 
@@ -694,21 +664,16 @@ async def _try_rapidocr(local_img) -> dict | None:
 async def extract_echo_stats(image_path: str) -> dict:
     """
     Extract echo sub-stats from image.
-    Tries RapidOCR → EasyOCR (local, on a preprocessed image) first;
-    falls back to API providers (on a normalized PNG) if both local engines fail.
+    Tries RapidOCR (local, on a preprocessed image) first;
+    falls back to API providers (on a normalized PNG) if the local engine fails.
     """
     raw_bytes, raw_mime = read_image_bytes(image_path)
 
-    # Local engines run on a robustly-decoded, upscaled, contrast-enhanced grayscale image
+    # Local engine runs on a robustly-decoded, upscaled, contrast-enhanced grayscale image
     local_img = await asyncio.to_thread(_prep_local_image, raw_bytes)
 
     # 1. RapidOCR (local ONNX) — primary
     result = await _try_rapidocr(local_img)
-    if result is not None:
-        return result
-
-    # 2. EasyOCR (local) — secondary
-    result = await _try_easyocr(local_img)
     if result is not None:
         return result
 
@@ -733,6 +698,6 @@ async def extract_echo_stats(image_path: str) -> dict:
 
     raise RuntimeError(
         "Không thể đọc echo từ ảnh này. "
-        "RapidOCR và EasyOCR không detect được sub-stats, và tất cả API providers đều không khả dụng hoặc hết quota. "
-        "Hãy thử ảnh rõ hơn hoặc kiểm tra API keys."
+        "RapidOCR không detect được sub-stats, và tất cả API providers đều không khả dụng hoặc hết quota. "
+        "Hãy thử ảnh rõ hơn, nhập sub-stat thủ công, hoặc kiểm tra API keys."
     )

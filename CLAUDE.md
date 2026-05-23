@@ -82,7 +82,7 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **Set page must use `POST /score/calculate-set`** — never call single-echo scoring 5×. ER state is shared sequentially across echoes; arithmetic mean of single scores diverges from EVC.
 
-- **OCR is local-first** — RapidOCR (ONNX, models bundled in wheel) → EasyOCR (no API key, ~140 MB models in image) → Gemini `gemini-2.5-flash` → OpenAI → Anthropic. Local engines run on a preprocessed image (`_prep_local_image`: robust decode → upscale-if-small → grayscale+CLAHE) which fixes raw-game-screenshot colorspace/bit-depth quirks; API providers get a normalized PNG. **Never use `gemini-2.0-flash`** (rate limit = 0 on new projects).
+- **OCR is local-first** — RapidOCR (ONNX, models bundled in wheel) → Gemini `gemini-2.5-flash` → OpenAI → Anthropic. RapidOCR is the only local engine (EasyOCR was dropped — its `torch` dep made the image huge and timed out the build on slow networks). It runs on a preprocessed image (`_prep_local_image`: robust decode → upscale-if-small → grayscale+CLAHE) which fixes raw-game-screenshot colorspace/bit-depth quirks; API providers get a normalized PNG. **Never use `gemini-2.0-flash`** (rate limit = 0 on new projects).
 
 - **Character build status is server-side** — `character_profiles` table, accessed via `GET/PUT /api/v1/character-profiles`. `Characters.tsx` auto-migrates from localStorage once on first load when server is empty.
 
