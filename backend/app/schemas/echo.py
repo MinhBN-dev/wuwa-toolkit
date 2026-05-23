@@ -213,6 +213,7 @@ class ConvenePullResponse(BaseModel):
     time: datetime
     pity: int | None = None  # filled by stats endpoint, not history list
     card_pool_type: int | None = None  # filled by history endpoint
+    pull_no: int | None = None  # 1-based chronological position within the pool (incl. 3★)
 
     model_config = {"from_attributes": True}
 

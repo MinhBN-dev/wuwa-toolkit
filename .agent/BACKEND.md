@@ -93,7 +93,7 @@ backend/
 | POST | /api/v1/character-profiles/bulk | Bulk upsert (localStorage migration) |
 | POST | /api/v1/convene/import | Paste in-game export URL → fetch all pools → ON CONFLICT DO NOTHING insert. `cardPoolId` (gacha_id) from URL is reused for every cardPoolType (required — empty returns near-zero data) |
 | GET | /api/v1/convene/players | List synced UIDs (UID + total + last_pull_time) |
-| GET | /api/v1/convene/history | Paginated pulls (default 4★+5★ via `min_rarity`). Filters: `pool_type`, `rarity`, `min_rarity`, `skip`, `limit`. Returns `{items, total, skip, limit}`. **Per-row pity** computed by walking the entire pool oldest-first |
+| GET | /api/v1/convene/history | Paginated pulls (default 4★+5★ via `min_rarity`). Filters: `pool_type`, `rarity`, `min_rarity`, `skip`, `limit`. Returns `{items, total, skip, limit}`. **Per-row pity** and **`pull_no`** (1-based chronological position within the pool, incl. 3★, for the "Pull No." column) both computed by walking the entire pool oldest-first. NB: `pull_no` is server-computed, **not** derived from `pull_id` — `pull_id` is now a timestamp string so `Number(pull_id)` would be `NaN` |
 | GET | /api/v1/convene/stats | Always emits an entry for `VISIBLE_POOLS = (1,2,3,4)` even when 0 pulls. Per-pool: total, total_astrites (×160), 5★/4★ counts, current pity_5/pity_4, avg_pity_5, **pull_ratio** (5★/total), **wins_50_50 / losses_50_50 / win_rate_50_50** (only for pool 1), and 5★ list newest-first with pity-at-pull |
 | DELETE | /api/v1/convene/players/{uid} | Wipe UID's history |
 
