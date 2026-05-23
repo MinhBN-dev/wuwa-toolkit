@@ -420,9 +420,18 @@ _AMBIGUOUS_STAT_PATTERNS: list[tuple[str, str, str]] = [
 
 
 def _map_stat_name(name: str, has_percent: bool) -> str | None:
-    """Map raw OCR stat name to standard format."""
-    n = re.sub(r'[·•\-:]', ' ', name.lower()).strip()
-    n = re.sub(r'\s+', ' ', n)
+    """Map raw OCR stat name to standard format.
+
+    Robust to the leading "+" bullet that prefixes every in-game sub-stat row and to
+    stray icon glyphs (⚔ on ATK, ♥ on HP) the engines sometimes emit: we strip
+    everything that isn't a stat-name char before matching. Without this, ambiguous
+    stats (ATK / HP / DEF) read as "+ atk" never matched the `^atk$` fullmatch and were
+    silently dropped — the root cause of missing ATK%/HP%/DEF% sub-stats.
+    """
+    n = name.lower()
+    n = re.sub(r'[+·•*]', ' ', n)        # bullet / plus markers
+    n = re.sub(r'[^a-z%. ]', ' ', n)     # drop icon glyphs, digits, stray symbols
+    n = re.sub(r'\s+', ' ', n).strip()
 
     for pattern, result in _STAT_PATTERNS:
         if re.search(pattern, n):
@@ -450,6 +459,27 @@ _NOISE_ROW_RE = re.compile(
 )
 
 
+def _is_name_token(tok: str) -> bool:
+    """Keep a token as part of the echo name?
+
+    Drops the level badge ("+25"), the COST keyword, single-letter skill/lock button
+    badges (Z, C, …) that sit beside the name, and pure-symbol/icon tokens (◎). Keeps
+    any real word so multi-line names join correctly.
+    """
+    t = tok.strip()
+    if not t:
+        return False
+    if re.fullmatch(r'\+?\d+', t):              # level "+25" / stray numbers
+        return False
+    if re.fullmatch(r'[a-zA-Z]', t):            # single-letter button badge (Z / C / X)
+        return False
+    if re.fullmatch(r'cost', t, re.IGNORECASE):
+        return False
+    if not re.search(r'[a-zA-Z]', t):           # pure symbol / icon (◎ …)
+        return False
+    return True
+
+
 def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) -> dict:
     """
     Parse a list of (bbox, text, conf) blocks (EasyOCR / RapidOCR shape) into an echo dict.
@@ -467,7 +497,13 @@ def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) ->
     # Sort all blocks by vertical center
     sorted_r = sorted(results, key=lambda r: (r[0][0][1] + r[0][2][1]) / 2)
 
-    # Group into visual rows (15px Y-proximity threshold)
+    # Group into visual rows. Threshold is relative to median text height (not a fixed
+    # 15px) so it holds after the upscale step — a fixed px gap split single lines into
+    # two rows once the image was enlarged, which dropped/garbled sub-stats.
+    heights = [abs(r[0][2][1] - r[0][0][1]) for r in results if r[0]]
+    median_h = sorted(heights)[len(heights) // 2] if heights else 20.0
+    row_thresh = max(8.0, median_h * 0.6)
+
     rows: list[list[tuple[float, str]]] = []
     current: list[tuple[float, str]] = []
     last_y: float | None = None
@@ -478,7 +514,7 @@ def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) ->
             continue
         cy = (bbox[0][1] + bbox[2][1]) / 2
         cx = (bbox[0][0] + bbox[2][0]) / 2
-        if last_y is None or abs(cy - last_y) < 15:
+        if last_y is None or abs(cy - last_y) < row_thresh:
             current.append((cx, text))
         else:
             if current:
@@ -491,19 +527,31 @@ def _parse_ocr_rows(results: list, *, provider: str, confidence: float = 0.6) ->
     row_texts = [' '.join(t for _, t in row) for row in rows if row]
     row_texts = [t for t in row_texts if t]
 
-    # ── Echo name: first row ──
-    echo_name = row_texts[0] if row_texts else "Unknown Echo"
-
-    # ── Cost: scan first 6 rows ──
+    # ── Cost: scan first 6 rows, remember which row it sits on ──
     echo_cost = 4
-    for text in row_texts[:6]:
+    cost_idx: int | None = None
+    for i, text in enumerate(row_texts[:6]):
         m = re.search(r'cost\s*[:\-]?\s*([134])', text, re.IGNORECASE)
         if m:
             echo_cost = int(m.group(1))
+            cost_idx = i
+            break
+        if re.search(r'\bcost\b', text, re.IGNORECASE):
+            cost_idx = i
+            digit = re.search(r'([134])', text)
+            if digit:
+                echo_cost = int(digit.group(1))
             break
         if re.fullmatch(r'[134]', text.strip()):
             echo_cost = int(text.strip())
+            cost_idx = i
             break
+
+    # ── Echo name: every row ABOVE the COST row (handles 2-line names), with the
+    #    level badge / button glyphs / single-letter badges filtered out ──
+    name_rows = row_texts[:cost_idx] if cost_idx else row_texts[:1]
+    name_tokens = [tok for text in name_rows for tok in text.split() if _is_name_token(tok)]
+    echo_name = ' '.join(name_tokens) or "Unknown Echo"
 
     # ── Parse stat lines (name + numeric value pairs) ──
     VALUE_RE = re.compile(r'^([\d,]+\.?\d*)\s*(%?)[/\\|]?$')

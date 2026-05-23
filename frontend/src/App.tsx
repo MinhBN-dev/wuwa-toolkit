@@ -56,8 +56,8 @@ export default function App() {
             </NavLink>
 
             <nav className="flex gap-1 ml-auto">
-              <NavItem to="/">Analyze</NavItem>
-              <NavItem to="/set">Full Set</NavItem>
+              <NavItem to="/">Echo Score</NavItem>
+              <NavItem to="/set">Full Score</NavItem>
               <NavItem to="/saved">Library</NavItem>
               <NavItem to="/characters">Resonators</NavItem>
               <NavItem to="/convene">Convene</NavItem>

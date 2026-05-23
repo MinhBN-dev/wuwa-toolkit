@@ -208,6 +208,9 @@ Provider priority (local-first):
 
 - **Image preprocessing** (`_prep_local_image`): robust decode via `cv2.IMREAD_UNCHANGED` → normalize 16-bit/float → 8-bit, composite alpha over white, expand grayscale → upscale-if-small (shorter side ≥ 720px) → grayscale + CLAHE. Fixes the "screenshot-from-game reads wrong but re-cropped-from-website reads fine" bug (raw game screenshots can have odd colorspace / bit-depth / alpha). API providers get a normalized PNG (`_normalized_png_bytes`) instead of the raw bytes.
 - Local engines (RapidOCR, EasyOCR) share `_parse_ocr_rows(results, provider=, confidence=)` — same `(bbox, text, conf)` block shape; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
+  - **Row grouping is adaptive** — threshold = `0.6 × median text height`, not a fixed 15px. A fixed gap split single lines into two rows after the upscale step (dropped/garbled sub-stats).
+  - **`_map_stat_name` strips leading noise** (`+` bullet, icon glyphs ⚔/♥, stray symbols) before matching. Every in-game sub-stat row is prefixed with `+`; without stripping it the ambiguous stats (ATK/HP/DEF) read as `"+ atk"` failed the `^atk$` fullmatch and were silently dropped — root cause of missing ATK%/HP%/DEF% sub-stats.
+  - **Echo name = all rows ABOVE the COST row** (via `cost_idx`), filtered by `_is_name_token` (drops `+25` level badge, `COST`, single-letter skill/lock button glyphs Z/C, pure-symbol icons). Handles 2-line names; stops the Z/C buttons leaking into the name.
 - 429/quota errors skip ngay sang model kế; 5xx retry tối đa 3×
 - KHÔNG dùng `gemini-2.0-flash` — rate limit = 0 trên project mới
 - Returns: `echo_name`, `echo_set`, `echo_element`, `echo_cost`, **`main_stat_type`**, **`main_stat_value`**, `sub_stats` (≤5), `provider`, `confidence`
