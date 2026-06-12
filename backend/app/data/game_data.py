@@ -81,27 +81,27 @@ def _make_rv(arr: list[float]) -> dict[str, float]:
 CHARACTER_DATA: dict[str, dict] = {
     "Aalto (DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.70, 0.0, 0.5*0.15, 0.5*0.10]),
-        "er": [128.1, 0.45, 150.0], "anal": True,
+        "er": [125.0, 0.45, 150.0], "anal": True,
         "element": "Aero", "weapon": "Pistols", "role": "DPS",
     },
     "Aalto (Sub-DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.45, 0.0, 0.5*0.25, 0.5*0.15]),
-        "er": [138.1, 1.0, 150.0], "anal": True,
+        "er": [125.0, 0.45, 150.0], "anal": True,
         "element": "Aero", "weapon": "Pistols", "role": "SubDPS",
     },
     "Aemeath": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.65]),
-        "er": [120.0, 0.9, 125.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.0, 0.0, 0.5*0.85]),
+        "er": [125.0, 0.9, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Sword", "role": "DPS",
     },
     "Augusta": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.75, 0.5*0.15, 0.0]),
-        "er": [128.1, 0.9, 125.0], "anal": True,
+        "er": [115.0, 0.9, 125.0], "anal": True,
         "element": "Electro", "weapon": "Broadblade", "role": "DPS",
     },
     "Baizhi": {
         "rv": _make_rv([0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-        "er": [233.1, 1.0, 175.0], "anal": False,
+        "er": [230.0, 1.0, 175.0], "anal": False,
         "element": "Glacio", "weapon": "Rectifier", "role": "Healer",
     },
     "Brant (sub DPS, ER/ER 3 cost setup)": {
@@ -111,47 +111,47 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Buling": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-        "er": [138.1, 1.0, 150.0], "anal": False,
+        "er": [135.0, 1.0, 150.0], "anal": False,
         "element": "Electro", "weapon": "Gauntlets", "role": "SubDPS",
     },
     "Calcharo": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.25, 0.0, 0.0, 0.5*0.6]),
-        "er": [128.1, 0.6, 125.0], "anal": True,
+        "er": [125.0, 0.6, 125.0], "anal": True,
         "element": "Electro", "weapon": "Sword", "role": "DPS",
     },
     "Camellya": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.7, 0.0, 0.0, 0.5*0.15]),
-        "er": [128.1, 0.2, 125.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.75, 0.0, 0.0, 0.5*0.15]),
+        "er": [115.0, 0.2, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Sword", "role": "DPS",
     },
     "Cantarella": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.7, 0.0, 0.5*0.1, 0.0]),
-        "er": [138.1, 0.8, 125.0], "anal": True,
+        "er": [135.0, 0.8, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Pistols", "role": "DPS",
     },
     "Carlotta": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85, 0.0]),
-        "er": [128.1, 0.6, 125.0], "anal": True,
+        "er": [125.0, 0.6, 125.0], "anal": True,
         "element": "Glacio", "weapon": "Pistols", "role": "DPS",
     },
     "Cartethyia": {
         "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.5, 0.25, 0.0, 0.0, 0.5*0.55, 0.0, 0.5*0.1, 0.5*0.25]),
-        "er": [115.0, 0.6, 125.0], "anal": True,
+        "er": [110.0, 0.6, 125.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Changli": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.6, 0.5*0.25]),
-        "er": [123.1, 0.35, 125.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.65, 0.5*0.3]),
+        "er": [120.0, 0.35, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Sword", "role": "DPS",
     },
     "Chisa": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.75]),
-        "er": [128.1, 0.7, 125.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.8]),
+        "er": [125.0, 0.7, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Gauntlets", "role": "DPS",
     },
     "Chixia": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.5, 0.5*0.3]),
-        "er": [145.0, 0.3, 150.0], "anal": True,
+        "er": [140.0, 0.3, 150.0], "anal": True,
         "element": "Fusion", "weapon": "Pistols", "role": "DPS",
     },
     "Ciaccona": {
@@ -164,54 +164,54 @@ CHARACTER_DATA: dict[str, dict] = {
         "er": [0.0, 0.0, 100.0], "anal": True,
         "element": "Havoc", "weapon": "Sword", "role": "DPS",
     },
-    "Denia (Tentative)": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
-        "er": [118.1, 1.0, 125.0], "anal": True,
+    "Denia": {
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.9]),
+        "er": [115.0, 1.0, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Rectifier", "role": "SubDPS",
     },
     "Encore (Hypercarry)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.5, 0.0, 0.5*0.15, 0.5*0.15]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Rectifier", "role": "DPS",
     },
     "Galbrena": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.35, 0.0, 0.0]),
-        "er": [128.1, 0.6, 125.0], "anal": True,
+        "er": [125.0, 0.6, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Broadblade", "role": "DPS",
     },
     "Hiyuki": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.80]),
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.85]),
         "er": [120.0, 0.8, 125.0], "anal": True,
         "element": "Glacio", "weapon": "Sword", "role": "DPS",
     },
     "Iuno (Main DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
-        "er": [113.1, 0.8, 125.0], "anal": True,
+        "er": [110.0, 0.8, 125.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Iuno (Sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
-        "er": [133.1, 1.0, 125.0], "anal": True,
+        "er": [130.0, 0.8, 125.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "SubDPS",
     },
     "Jianxin (DPS/sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.25, 0.5*0.4, 0.0, 0.5*0.3]),
-        "er": [138.1, 0.3, 150.0], "anal": True,
+        "er": [135.0, 0.3, 150.0], "anal": True,
         "element": "Aero", "weapon": "Gauntlets", "role": "SubDPS",
     },
     "Jinhsi": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.75, 0.5*0.2]),
-        "er": [118.1, 0.2, 150.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.8, 0.5*0.15]),
+        "er": [115.0, 0.2, 150.0], "anal": True,
         "element": "Spectro", "weapon": "Broadblade", "role": "DPS",
     },
     "Jiyan": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.7, 0.5*0.15, 0.0]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Aero", "weapon": "Broadblade", "role": "DPS",
     },
     "Lingyang": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.35, 0.0, 0.5*0.3, 0.5*0.1]),
-        "er": [128.1, 0.4, 125.0], "anal": True,
+        "er": [125.0, 0.4, 125.0], "anal": True,
         "element": "Glacio", "weapon": "Gauntlets", "role": "DPS",
     },
     "Luuk Herssen": {
@@ -226,12 +226,12 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Lupa": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.15, 0.5*0.7]),
-        "er": [123.1, 1.0, 125.0], "anal": True,
+        "er": [120.0, 1.0, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Sword", "role": "DPS",
     },
     "Lynae": {
-        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.6, 0.0, 0.0, 0.5*0.2]),
-        "er": [128.1, 0.9, 125.0], "anal": True,
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.7, 0.0, 0.0, 0.5*0.2]),
+        "er": [125.0, 0.9, 125.0], "anal": True,
         "element": "Spectro", "weapon": "Pistols", "role": "DPS",
     },
     "Mornye": {
@@ -241,7 +241,7 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Mortefi": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.0, 0.5*0.15, 0.5*0.7]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [120.0, 1.0, 125.0], "anal": True,
         "element": "Fusion", "weapon": "Pistols", "role": "SubDPS",
     },
     "Phoebe (Main DPS)": {
@@ -251,7 +251,7 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Phoebe (Sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.15, 0.5*0.45, 0.0, 0.5*0.15]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Spectro", "weapon": "Rectifier", "role": "SubDPS",
     },
     "Phrolova": {
@@ -261,27 +261,27 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Qiuyuan": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.65, 0.0, 0.0]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Aero", "weapon": "Broadblade", "role": "DPS",
     },
     "Roccia": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.55, 0.5*0.2, 0.0]),
-        "er": [138.1, 1.0, 125.0], "anal": True,
+        "er": [130.0, 1.0, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Gauntlets", "role": "SubDPS",
     },
     "Aero Rover": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.65, 0.5*0.2]),
-        "er": [138.1, 1.0, 150.0], "anal": True,
+        "er": [145.0, 1.0, 150.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Havoc Rover": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.3, 0.0, 0.5*0.2, 0.5*0.25]),
-        "er": [128.1, 0.3, 125.0], "anal": True,
+        "er": [125.0, 0.3, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Sword", "role": "DPS",
     },
     "Spectro Rover": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.3, 0.5*0.35]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Spectro", "weapon": "Sword", "role": "DPS",
     },
     "Sanhua": {
@@ -296,7 +296,7 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Taoqi (sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.5*0.5, 0.0, 0.0, 0.5*0.5]),
-        "er": [128.1, 1.0, 125.0], "anal": True,
+        "er": [125.0, 1.0, 125.0], "anal": True,
         "element": "Havoc", "weapon": "Broadblade", "role": "SubDPS",
     },
     "Taoqi (sup)": {
@@ -306,7 +306,7 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "The Shorekeeper (No Fallacy)": {
         "rv": _make_rv([0.0, 1.0, 0.0, 0.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.75]),
-        "er": [250.0, 1.0, 175.0], "anal": False,
+        "er": [240.0, 1.0, 175.0], "anal": False,
         "element": "Spectro", "weapon": "Rectifier", "role": "Healer",
     },
     "The Shorekeeper (With Fallacy)": {
@@ -316,22 +316,22 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Verina": {
         "rv": _make_rv([0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-        "er": [233.1, 1.0, 175.0], "anal": False,
+        "er": [230.0, 1.0, 175.0], "anal": False,
         "element": "Spectro", "weapon": "Rectifier", "role": "Healer",
     },
     "Xiangli Yao": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.0, 0.5*0.15, 0.5*0.6]),
-        "er": [123.1, 0.8, 125.0], "anal": True,
+        "er": [120.0, 0.8, 125.0], "anal": True,
         "element": "Electro", "weapon": "Gauntlets", "role": "DPS",
     },
     "Yangyang": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.3, 0.0, 0.5*0.15, 0.5*0.45]),
-        "er": [118.1, 0.3, 100.0], "anal": True,
+        "er": [115.0, 0.3, 100.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "SubDPS",
     },
     "Yinlin": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.60, 0.5*0.2]),
-        "er": [138.1, 0.2, 125.0], "anal": True,
+        "er": [135.0, 0.2, 125.0], "anal": True,
         "element": "Electro", "weapon": "Rectifier", "role": "SubDPS",
     },
     "Youhu": {
@@ -341,18 +341,28 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Yuanwu": {
         "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.0, 0.0, 0.5*0.5, 0.5*0.4]),
-        "er": [138.1, 1.0, 125.0], "anal": True,
+        "er": [135.0, 1.0, 125.0], "anal": True,
         "element": "Electro", "weapon": "Gauntlets", "role": "Support",
     },
     "Zani": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.6, 0.0, 0.5*0.2]),
-        "er": [123.1, 0.9, 125.0], "anal": True,
+        "er": [120.0, 0.9, 125.0], "anal": True,
         "element": "Spectro", "weapon": "Gauntlets", "role": "DPS",
     },
     "Zhezhi": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.8, 0.0, 0.0, 0.0]),
-        "er": [138.1, 1.0, 125.0], "anal": True,
+        "er": [130.0, 1.0, 125.0], "anal": True,
         "element": "Spectro", "weapon": "Rectifier", "role": "SubDPS",
+    },
+    "Mornye (Crit/Def)": {
+        "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.5*0.75]),
+        "er": [260.0, 1.0, 175.0], "anal": False,
+        "element": "Fusion", "weapon": "Broadblade", "role": "Support",
+    },
+    "The Shorekeeper (Pure Support)": {
+        "rv": _make_rv([0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        "er": [230.0, 1.0, 175.0], "anal": False,
+        "element": "Spectro", "weapon": "Rectifier", "role": "Healer",
     },
 }
 
