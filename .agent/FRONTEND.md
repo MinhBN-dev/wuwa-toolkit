@@ -83,6 +83,7 @@ calculateScore(data)         POST /score/calculate
 calculateSetScore(data)      POST /score/calculate-set  — EVC full mode, dùng cho Set page
 getEchoSets()                GET /sets
 saveEchoSet(data)            POST /sets
+updateEchoSet(id, data)      PUT /sets/{id}   (overwrite in-place)
 deleteEchoSet(id)            DELETE /sets/{id}
 getEvcStatus()               GET /evc-status
 acknowledgeEvcUpdate(date)   POST /evc-status/acknowledge
@@ -139,13 +140,17 @@ totalER: string
 pasteTarget: number         // index slot sẽ nhận paste (Crosshair icon)
 editingSlot: number | null  // slot đang mở manual-entry dialog (Pencil icon)
 saveName: string
+editingSetId: string | null // set đang load để sửa; ≠null → Save = overwrite (PUT), =null → tạo mới (POST)
 ```
 
 - **Manual entry**: mỗi slot có nút ✎ (Pencil) → mở dialog dùng lại `StatsEditor` (echo name, cost, sub-stats) cho khi OCR đọc không được. Sửa stat/meta → reset `scoreResult` của slot. (Trang Home đã có `StatsEditor` inline sẵn nên không cần thêm.)
 - **Paste**: clipboard → slot tại `pasteTarget` → auto advance `(pasteTarget+1)%5`
 - **Score all**: `handleCalculateAll` → `calculateSetScore` (1 call duy nhất, EVC full-mode) → cập nhật scoreResult từng slot
-- **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → `saveEchoSet` với slots có `echo_id`
-- **Load set**: fill slots từ saved data, set character + totalER
+- **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → build body → `handleSave(mode)`:
+  - `mode='new'` → `saveEchoSet` (POST, INSERT) rồi gán `editingSetId = created.id` (bám luôn set vừa tạo để lần sau Update).
+  - `mode='update'` (khi `editingSetId≠null`) → `updateEchoSet(id, body)` (PUT) ghi đè đúng set đang load.
+  - UI: đang edit → nút **Update** (overwrite) + **Save as new**; chưa edit → nút **Save** thường.
+- **Load set**: fill slots + character + totalER, **set `editingSetId = saved.id`** và prefill `saveName`. Đổi character (`handleCharacterChange`) hoặc xoá đúng set đang edit → reset `editingSetId=null`. (Trước đây Save **luôn** tạo set mới, gây trùng tên — xem `.agent/BACKEND.md` PUT /sets/{id}.)
 
 ## Colors (Tailwind custom)
 

@@ -43,6 +43,29 @@ async def save_echo_set(payload: EchoSetSaveRequest, db: AsyncSession = Depends(
     return _to_response(echo_set)
 
 
+@router.put("/{set_id}", response_model=EchoSetResponse)
+async def update_echo_set(
+    set_id: uuid.UUID, payload: EchoSetSaveRequest, db: AsyncSession = Depends(get_db)
+):
+    """Overwrite an existing set in place (load → edit → Update flow)."""
+    result = await db.execute(select(EchoSet).where(EchoSet.id == set_id))
+    echo_set = result.scalar_one_or_none()
+    if not echo_set:
+        raise HTTPException(status_code=404, detail="Set not found")
+
+    character_name = await _resolve_char_name(payload.character_id, payload.character_name, db)
+    echo_set.name = payload.name
+    echo_set.character_id = payload.character_id
+    echo_set.character_name = character_name
+    echo_set.total_er = payload.total_er
+    echo_set.slots = [s.model_dump(mode="json") for s in payload.slots]
+    echo_set.set_score = payload.set_score
+    echo_set.set_tier = payload.set_tier
+    await db.commit()
+    await db.refresh(echo_set)
+    return _to_response(echo_set)
+
+
 @router.get("", response_model=list[EchoSetResponse])
 async def list_echo_sets(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EchoSet).order_by(EchoSet.created_at.desc()))

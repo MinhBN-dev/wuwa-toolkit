@@ -26,7 +26,7 @@ backend/
     │   ├── characters.py GET /characters, GET /characters/game-data (incl. ER data)
     │   ├── ocr.py       POST /ocr/extract (image → OCR pipeline)
     │   ├── scoring.py   POST /score/calculate, POST /score/calculate-set
-    │   ├── sets.py      CRUD: /sets (saved echo sets)
+    │   ├── sets.py      CRUD: /sets (POST=insert, PUT /{id}=overwrite, GET, DELETE)
     │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
     │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
     │   └── convene.py    Convene tracker: /convene/import|players|stats|history
@@ -84,7 +84,8 @@ backend/
 | POST | /api/v1/score/calculate | Single echo score (stateless) |
 | POST | /api/v1/score/calculate-set | Full set score (stateful ER — **dùng cho Set page**) |
 | GET | /api/v1/sets | List saved echo sets |
-| POST | /api/v1/sets | Save echo set |
+| POST | /api/v1/sets | Save echo set (always **INSERT** mới) |
+| PUT | /api/v1/sets/{id} | Overwrite set in-place (load → edit → Update) |
 | DELETE | /api/v1/sets/{id} | Delete echo set |
 | GET | /api/v1/evc-status | Fetch EVC changelog, compare với acknowledged |
 | POST | /api/v1/evc-status/acknowledge | Mark version as seen |
