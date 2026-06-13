@@ -141,6 +141,26 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U wuwa_toolkit_user -d wuwa_t
 # Lưu ý: xóa character_profiles sẽ mất build status; xóa convene_pulls sẽ mất history
 ```
 
+### Rename characters khi sync EVC (build-name đổi)
+
+`seed_characters()` chỉ insert-only → đổi tên build trong `CHARACTER_DATA` cần rename thủ công trong DB (FK `echo_sets.character_id` theo id nên tự sống; chỉ string `characters.name`, `echo_sets.character_name`, `character_profiles.character_name` cần đụng). Mẫu (EVC 4.1 sync — chạy trong 1 `BEGIN/COMMIT`):
+
+```sql
+UPDATE characters SET name='Rover (Aero)' WHERE name='Aero Rover';      -- + Havoc/Spectro
+UPDATE characters SET name='Brant'        WHERE name='Brant (sub DPS, ER/ER 3 cost setup)';
+-- Mornye swap cần temp name tránh đụng UNIQUE(name):
+UPDATE characters SET name='__mornye_tmp__' WHERE name='Mornye';
+UPDATE characters SET name='Mornye'         WHERE name='Mornye (Crit/Def)';
+UPDATE characters SET name='Mornye (Pure Support)' WHERE name='__mornye_tmp__';
+-- Aemeath split: row cũ → Rupture, Fusion Burst seed mới khi restart:
+UPDATE characters SET name='Aemeath (Rupture)' WHERE name='Aemeath';
+UPDATE echo_sets  SET character_name='Aemeath (Rupture)' WHERE character_name='Aemeath';
+-- profile key theo base name → chỉ Rover cần đổi (base 'Aero Rover'→'Rover (Aero)'):
+UPDATE character_profiles SET character_name='Rover (Aero)' WHERE character_name='Aero Rover';
+```
+
+Sau rename + sửa weight: **re-score data đã lưu** (score cũ stale). Viết script one-off trong backend venv re-dùng `calculate_set_score`/`calculate_score` (xem `BACKEND.md → Syncing upstream`), update `echo_sets.slots[].score*` + `set_score`/`set_tier` và `echoes.score*`. DB public mới không cần bước này (seed insert hết, không có data cũ).
+
 ### DBA tasks
 
 User `dba` (superuser shared admin). KHÔNG dùng `postgres` hay `dba` trong app `.env`. Schema change → manual `ALTER TABLE` qua `dba` (không có Alembic).

@@ -205,6 +205,12 @@ gh api repos/AstyuteChick/Echo-Value-Calculator/commits/<sha> -H "Accept: applic
 
 Tham khảo nhanh để port: `python3` import upstream `evc_engine.py` rồi so `Character.data` với `CHARACTER_DATA` (rv + req_er + anal). Có thể tự sinh block `CHARACTER_DATA` giữ nguyên expression `0.5*x` của upstream + metadata cũ của ta (xem cách làm trong git history của commit sync này).
 
+**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.)
+
+**Synced state: EVC 4.1 (13.06.2026).** Lần sync này: (1) recalc `imp_er` toàn cục + refine rv damage-type weights; (2) **Aemeath tách 2 build** `(Rupture)`/`(Fusion Burst)`; (3) **Yuanwu `anal` False→True** (giờ scorable); (4) thêm Lucy / Rebecca / Lucilla(×2); (5) rename theo upstream: Brant, `Aalto/Iuno/Jianxin` suffix, Rover (`Aero Rover`→`Rover (Aero)`...), Mornye swap (our pure-support→`Mornye (Pure Support)`, our crit/def→`Mornye`).
+
+**Rename gotcha:** `seed_characters()` chỉ **insert-only** — đổi tên 1 key trong `CHARACTER_DATA` KHÔNG tự rename row trong `characters`/`echo_sets`/`character_profiles`. Phải chạy migration SQL thủ công (xem `.agent/DEVOPS.md`) + re-score data đã lưu (weight đổi → score cũ stale): re-dùng `calculate_set_score`/`calculate_score` viết script one-off, KHÔNG re-implement. `character_profiles` key theo **base name** (`getBaseName` cắt `(...)`), `echo_sets.character_name` key theo **full CHARACTER_DATA key** → chỉ cái sau cần đổi khi rename suffix. Rover là ngoại lệ: `getBaseName` (frontend `utils/character.ts`) special-case `"Rover ("` để 3 variant vẫn là 3 card riêng, + `SLUG_OVERRIDES` trỏ portrait `aero-rover.webp`...
+
 ## Character Seeding
 
 `main.py → seed_characters()` chạy trên mỗi lifespan startup. Idempotent: query `select(Character.name)` → diff với `CHARACTER_LIST` từ game_data → insert những entry mới. Add character vào `CHARACTER_DATA` rồi restart backend là đủ — không cần manual SQL.
