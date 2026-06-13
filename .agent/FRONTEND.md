@@ -36,7 +36,7 @@ frontend/
         ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
         ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
         ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
-        ├── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
+        ├── Characters.tsx   Hero + 4 stat tiles + portrait grid; mỗi card có chip điểm các echo-set gắn nhân vật (hover → popover điểm từng echo, render qua portal tránh clip-path)
         └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win), pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
 ```
 
@@ -121,7 +121,7 @@ Each page uses the same shared classes (panel-tech / section-label / readout / b
 | `/` Home | (none) | 2-col workspace; element-colored char chip top-right; big tier-colored score number with glow |
 | `/set` Full Score | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo; per-slot ✎ opens manual-entry dialog |
 | `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
-| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait has conic-gradient element ring + status-colored circular border |
+| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait có conic-gradient element ring + status-colored border; chip điểm echo-set (gom theo `getBaseName(set.character_name)`, hover → popover điểm từng echo) |
 
 All four pages mount with `animate-fade-up`. Score reveals use `animate-count-in`. Empty states use `◆` glyph in a cyan ring with `animate-pulse-glow`.
 
