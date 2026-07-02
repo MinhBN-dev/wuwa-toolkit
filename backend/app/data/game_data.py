@@ -2,7 +2,9 @@
 Wuthering Waves echo scoring data.
 Source: https://github.com/AstyuteChick/Echo-Value-Calculator (evc_engine.py)
 Ported 1:1 — do NOT manually edit weights; sync from upstream repo.
-Synced to upstream EVC 4.1 (13.06.2026).
+Synced to upstream EVC 4.1 (reviewed through 28.06.2026).
+Upstream 24.06/28.06.2026 only added a non-Default Hiyuki team option
+("Lucilla + Chisa" 107 ER) — Hiyuki Default stays 120.0, no port needed.
 """
 
 # Sub-stat names (order matches weight arrays below)
