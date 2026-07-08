@@ -9,10 +9,18 @@
 const SLUG_OVERRIDES: Record<string, string> = {
   'Ciaccona':      'ciaconna',     // double-c in game data, nn in file
   'Luuk Herssen':  'luuk-hersen',  // double-s in game data, single-s in file
+  // Rover elemental variants keep their own portraits (base name is special-cased
+  // to stay distinct — see getBaseName).
+  'Rover (Aero)':    'aero-rover',
+  'Rover (Havoc)':   'havoc-rover',
+  'Rover (Spectro)': 'spectro-rover',
 }
 
-/** Extract base character name — strips role suffix like "(DPS)", "(sup)", etc. */
+/** Extract base character name — strips role suffix like "(DPS)", "(sup)", etc.
+ *  Exception: Rover elemental variants ("Rover (Aero)" etc.) stay distinct so the
+ *  three Rovers render as separate cards / profiles instead of collapsing to one. */
 export function getBaseName(name: string): string {
+  if (name.startsWith('Rover (')) return name.trim()
   return name.replace(/\s*\(.*\)$/, '').trim()
 }
 

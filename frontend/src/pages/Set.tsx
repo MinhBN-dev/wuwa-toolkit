@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Loader2, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair, Layers, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
+import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, updateEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
@@ -311,11 +311,14 @@ export default function SetPage() {
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [showLoadPanel, setShowLoadPanel] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
+  // id of the currently-loaded set; non-null = Save overwrites it instead of creating a new set
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
 
   const qc = useQueryClient()
   const { data: characters = [] } = useQuery({ queryKey: ['characters'], queryFn: getCharacters })
   const { data: gameData } = useQuery({ queryKey: ['game-data'], queryFn: getGameData })
   const { data: savedSets = [] } = useQuery({ queryKey: ['echo-sets'], queryFn: getEchoSets })
+  const editingSet = editingSetId ? savedSets.find(s => s.id === editingSetId) ?? null : null
 
   const charWeights = selectedChar && gameData ? (gameData.character_weights[selectedChar.name] ?? null) : null
   const subStatRolls = gameData?.sub_stat_rolls ?? {}
@@ -329,6 +332,7 @@ export default function SetPage() {
     setSlots(Array.from({ length: 5 }, () =>
       emptySlot(char?.name, gameData?.character_weights)
     ))
+    setEditingSetId(null)  // switching character starts a fresh set
   }
 
   const handleCalculateAll = useCallback(async () => {
@@ -379,8 +383,9 @@ export default function SetPage() {
     ? scoredSlots.reduce((s, sl) => s + sl.scoreResult!.score_percent, 0) / scoredSlots.length
     : undefined
 
-  const handleSave = async () => {
+  const handleSave = async (mode: 'update' | 'new' = 'new') => {
     if (!saveName.trim()) { toast.warning('Enter a set name'); return }
+    const doUpdate = mode === 'update' && editingSetId != null
     setSaveLoading(true)
     try {
       const totalERNum = parseFloat(totalER) || undefined
@@ -416,7 +421,7 @@ export default function SetPage() {
         tier_label: slot.scoreResult?.tier_label ?? null,
       }))
 
-      await saveEchoSet({
+      const body = {
         name: saveName.trim(),
         character_id: selectedChar?.id,
         character_name: selectedChar?.name,
@@ -424,14 +429,21 @@ export default function SetPage() {
         slots: slotsData,
         set_score: currentSetScore,
         set_tier: currentSetScore !== undefined ? getTierLabel(currentSetScore) : undefined,
-      })
-      toast.success(`Saved set "${saveName.trim()}"`)
-      setSaveName('')
+      }
+
+      if (doUpdate) {
+        await updateEchoSet(editingSetId!, body)
+        toast.success(`Updated set "${saveName.trim()}"`)
+      } else {
+        const created = await saveEchoSet(body)
+        setEditingSetId(created.id)  // stay attached so further saves update this set
+        toast.success(`Saved set "${saveName.trim()}"`)
+      }
       setShowSaveInput(false)
       qc.invalidateQueries({ queryKey: ['echo-sets'] })
       qc.invalidateQueries({ queryKey: ['echoes'] })
     } catch {
-      toast.error('Save failed')
+      toast.error(doUpdate ? 'Update failed' : 'Save failed')
     } finally {
       setSaveLoading(false)
     }
@@ -469,6 +481,8 @@ export default function SetPage() {
       }
     })
     setSlots(loaded)
+    setEditingSetId(saved.id)
+    setSaveName(saved.name)
     setShowLoadPanel(false)
     toast.success(`Loaded set "${saved.name}"`)
   }
@@ -476,6 +490,7 @@ export default function SetPage() {
   const handleDeleteSet = async (id: string, name: string) => {
     try {
       await deleteEchoSet(id)
+      if (editingSetId === id) setEditingSetId(null)  // no longer editing a deleted set
       toast.success(`Deleted "${name}"`)
       qc.invalidateQueries({ queryKey: ['echo-sets'] })
     } catch {
@@ -632,17 +647,39 @@ export default function SetPage() {
                     placeholder="Set name…"
                     value={saveName}
                     onChange={e => setSaveName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSave()}
+                    onKeyDown={e => e.key === 'Enter' && handleSave(editingSetId ? 'update' : 'new')}
                     autoFocus
                   />
-                  <button
-                    onClick={handleSave}
-                    disabled={saveLoading}
-                    className="btn-primary flex items-center gap-1"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saveLoading ? '…' : 'Save'}
-                  </button>
+                  {editingSetId ? (
+                    <>
+                      <button
+                        onClick={() => handleSave('update')}
+                        disabled={saveLoading}
+                        className="btn-primary flex items-center gap-1"
+                        title={`Overwrite "${editingSet?.name ?? 'set'}"`}
+                      >
+                        <Save className="w-4 h-4" />
+                        {saveLoading ? '…' : 'Update'}
+                      </button>
+                      <button
+                        onClick={() => handleSave('new')}
+                        disabled={saveLoading}
+                        className="btn-secondary flex items-center gap-1"
+                        title="Save as a new set instead"
+                      >
+                        Save as new
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleSave('new')}
+                      disabled={saveLoading}
+                      className="btn-primary flex items-center gap-1"
+                    >
+                      <Save className="w-4 h-4" />
+                      {saveLoading ? '…' : 'Save'}
+                    </button>
+                  )}
                   <button onClick={() => setShowSaveInput(false)} className="btn-icon">
                     <X className="w-4 h-4" />
                   </button>
@@ -653,7 +690,7 @@ export default function SetPage() {
                   className="btn-secondary flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  Save Set
+                  {editingSetId ? `Save (editing “${editingSet?.name ?? '…'}”)` : 'Save Set'}
                 </button>
               )}
             </>

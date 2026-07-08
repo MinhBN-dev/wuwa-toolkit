@@ -26,7 +26,7 @@ backend/
     │   ├── characters.py GET /characters, GET /characters/game-data (incl. ER data)
     │   ├── ocr.py       POST /ocr/extract (image → OCR pipeline)
     │   ├── scoring.py   POST /score/calculate, POST /score/calculate-set
-    │   ├── sets.py      CRUD: /sets (saved echo sets)
+    │   ├── sets.py      CRUD: /sets (POST=insert, PUT /{id}=overwrite, GET, DELETE)
     │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
     │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
     │   └── convene.py    Convene tracker: /convene/import|players|stats|history
@@ -84,7 +84,8 @@ backend/
 | POST | /api/v1/score/calculate | Single echo score (stateless) |
 | POST | /api/v1/score/calculate-set | Full set score (stateful ER — **dùng cho Set page**) |
 | GET | /api/v1/sets | List saved echo sets |
-| POST | /api/v1/sets | Save echo set |
+| POST | /api/v1/sets | Save echo set (always **INSERT** mới) |
+| PUT | /api/v1/sets/{id} | Overwrite set in-place (load → edit → Update) |
 | DELETE | /api/v1/sets/{id} | Delete echo set |
 | GET | /api/v1/evc-status | Fetch EVC changelog, compare với acknowledged |
 | POST | /api/v1/evc-status/acknowledge | Mark version as seen |
@@ -123,7 +124,7 @@ Characters page
 
 Internal stat names dùng trong algorithm (vd `Crit Rate(%)`, `Atk(%)`, `ER(%)`) khác display name của FE/OCR (`Crit Rate`, `ATK%`, `ER%`). Mapping ở `scoring_service.py → STAT_NAME_MAP`.
 
-### Single echo (stateless) — `POST /score/calculate`
+### Single echo — `POST /score/calculate`
 
 ```
 AV = Σ (value / SUBSTAT_MEDIANS[stat]) × CHARACTER_DATA[char].weights[stat]
@@ -131,13 +132,31 @@ EP = Σ top-5 weights (+ er_ep_weight nếu ER cần)
 ES = (AV / EP) × 100      ← uncapped, có thể > 100
 ```
 
+`calculate_score()` **delegate thẳng vào `_score_one_stateful()`** (1 echo = đúng 1 iteration của EVC 'full' mode) → single-echo và full-set dùng *chung* ER logic, không còn nhánh ER riêng. Chỉ khác: single-echo round `score_percent` về 2dp.
+
 ### Full-set (stateful ER) — `POST /score/calculate-set`
 
 **Bắt buộc dùng cho Set page.** Đừng gọi single-echo 5× — ER state share tuần tự, kết quả sẽ lệch khỏi EVC.
 
 - Echoes có ER substat scored trước, phần còn lại sau.
-- ER budget: `er_net = total_er − req_er` (negative = deficit), carry forward echo→echo qua `_score_one_stateful()`.
+- ER budget: `er_net = total_er − req_er` (sign: <0 = deficit), carry forward echo→echo qua `_score_one_stateful()`.
 - `set_score = (ΣAV / ΣEP) × 100` — KHÔNG phải arithmetic mean của 5 score lẻ.
+
+### ER surplus-range model (`_init_er_net`, EVC 06–07.06.2026)
+
+EVC coi ER target là **một range *trên* target**, không phải điểm cố định — `_init_er_net()` áp dụng buffer `_ER_SURPLUS_BUFFER = 3.1`:
+
+```
+er_net = total_er − req_er   (chỉ khi req_er > 100, ngược lại = 0)
+0 < er_net ≤ 3.1  → 0          # surplus nhỏ không bị phạt
+er_net > 3.1      → er_net − 3.1   # discount phần dư (fix 07.06: tránh ignore quá nhiều ER)
+```
+
+→ `req_er` trong `CHARACTER_DATA` giờ là giá trị **clean** của upstream (vd `125.0`), KHÔNG bake sẵn `+3.1` như bản port cũ (`128.1`). Đổi `req_er` mà không có buffer này sẽ làm lệch toàn bộ score ~3 ER.
+
+Char cần `req_er < 100` (vd Phoebe Main DPS, Danjin, Phrolova): EVC **zero hẳn ER substat** (`er_ssr = 0` trong `_score_one_stateful`) — ER không đóng góp gì.
+
+> Parity: harness so trực tiếp với `evc_engine.main()` (echo + full mode, nhiều mức ER quanh boundary) — 0/3384 sai lệch > 0.02. Khi sửa scoring, chạy lại kiểu so sánh này.
 
 ### Tier labels (EVC)
 
@@ -182,7 +201,17 @@ gh api repos/AstyuteChick/Echo-Value-Calculator/commits | jq '.[] | "\(.commit.a
 gh api repos/AstyuteChick/Echo-Value-Calculator/commits/<sha> -H "Accept: application/vnd.github.v3.diff"
 ```
 
-Đọc diff `evc_engine.py`, copy `[rv_array, [er_target, er_imp, er_imp_label], anal]` vào `data/game_data.py → CHARACTER_DATA`. Element/weapon/role không có trong upstream — **hỏi user** thay vì web research (xem feedback memory).
+Đọc diff `evc_engine.py`. Upstream format hiện tại: `[rv_array, [{team: req_er, ...}, er_imp, rc], anal]` — **er giờ là dict theo team composition**. Bản port của ta vẫn dùng **single `req_er`**: lấy giá trị team `"Default"` (hoặc team tương ứng cho các key đã split như `Iuno (Main DPS)` → team `"Main DPS"`). Port `req_er` là giá trị **clean** của upstream (đừng cộng `+3.1` — buffer đó nằm trong `_init_er_net`, xem ER surplus-range model ở trên). Element/weapon/role không có trong upstream — **hỏi user** thay vì web research (xem feedback memory).
+
+Tham khảo nhanh để port: `python3` import upstream `evc_engine.py` rồi so `Character.data` với `CHARACTER_DATA` (rv + req_er + anal). Có thể tự sinh block `CHARACTER_DATA` giữ nguyên expression `0.5*x` của upstream + metadata cũ của ta (xem cách làm trong git history của commit sync này).
+
+**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.)
+
+**Synced state: EVC 4.1 — reviewed through 28.06.2026.** Upstream `evc_engine.py` sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 thêm `"Lucilla + Chisa": 105`, 28.06 chỉnh → `107`). Port của ta giữ Hiyuki Default `req_er = 120.0` → **không có data nào đổi**; full parity với upstream đã verify lại (mọi character khớp rv/Default-er/imp/rc/anal). `evc_status.json` đã ack `2026-06-28` để clear banner.
+
+Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv damage-type weights; (2) **Aemeath tách 2 build** `(Rupture)`/`(Fusion Burst)`; (3) **Yuanwu `anal` False→True** (giờ scorable); (4) thêm Lucy / Rebecca / Lucilla(×2); (5) rename theo upstream: Brant, `Aalto/Iuno/Jianxin` suffix, Rover (`Aero Rover`→`Rover (Aero)`...), Mornye swap (our pure-support→`Mornye (Pure Support)`, our crit/def→`Mornye`).
+
+**Rename gotcha:** `seed_characters()` chỉ **insert-only** — đổi tên 1 key trong `CHARACTER_DATA` KHÔNG tự rename row trong `characters`/`echo_sets`/`character_profiles`. Phải chạy migration SQL thủ công (xem `.agent/DEVOPS.md`) + re-score data đã lưu (weight đổi → score cũ stale): re-dùng `calculate_set_score`/`calculate_score` viết script one-off, KHÔNG re-implement. `character_profiles` key theo **base name** (`getBaseName` cắt `(...)`), `echo_sets.character_name` key theo **full CHARACTER_DATA key** → chỉ cái sau cần đổi khi rename suffix. Rover là ngoại lệ: `getBaseName` (frontend `utils/character.ts`) special-case `"Rover ("` để 3 variant vẫn là 3 card riêng, + `SLUG_OVERRIDES` trỏ portrait `aero-rover.webp`...
 
 ## Character Seeding
 

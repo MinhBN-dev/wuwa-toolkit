@@ -36,7 +36,7 @@ frontend/
         ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
         ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
         ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
-        ├── Characters.tsx   Hero + 4 stat tiles + portrait grid with conic-gradient element ring + status-colored border
+        ├── Characters.tsx   Hero + 4 stat tiles + portrait grid; mỗi card có chip điểm các echo-set gắn nhân vật (hover → popover điểm từng echo, render qua portal tránh clip-path)
         └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win), pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
 ```
 
@@ -83,6 +83,7 @@ calculateScore(data)         POST /score/calculate
 calculateSetScore(data)      POST /score/calculate-set  — EVC full mode, dùng cho Set page
 getEchoSets()                GET /sets
 saveEchoSet(data)            POST /sets
+updateEchoSet(id, data)      PUT /sets/{id}   (overwrite in-place)
 deleteEchoSet(id)            DELETE /sets/{id}
 getEvcStatus()               GET /evc-status
 acknowledgeEvcUpdate(date)   POST /evc-status/acknowledge
@@ -120,7 +121,7 @@ Each page uses the same shared classes (panel-tech / section-label / readout / b
 | `/` Home | (none) | 2-col workspace; element-colored char chip top-right; big tier-colored score number with glow |
 | `/set` Full Score | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo; per-slot ✎ opens manual-entry dialog |
 | `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
-| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait has conic-gradient element ring + status-colored circular border |
+| `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait có conic-gradient element ring + status-colored border; chip điểm echo-set (gom theo `getBaseName(set.character_name)`, hover → popover điểm từng echo) |
 
 All four pages mount with `animate-fade-up`. Score reveals use `animate-count-in`. Empty states use `◆` glyph in a cyan ring with `animate-pulse-glow`.
 
@@ -139,13 +140,17 @@ totalER: string
 pasteTarget: number         // index slot sẽ nhận paste (Crosshair icon)
 editingSlot: number | null  // slot đang mở manual-entry dialog (Pencil icon)
 saveName: string
+editingSetId: string | null // set đang load để sửa; ≠null → Save = overwrite (PUT), =null → tạo mới (POST)
 ```
 
 - **Manual entry**: mỗi slot có nút ✎ (Pencil) → mở dialog dùng lại `StatsEditor` (echo name, cost, sub-stats) cho khi OCR đọc không được. Sửa stat/meta → reset `scoreResult` của slot. (Trang Home đã có `StatsEditor` inline sẵn nên không cần thêm.)
 - **Paste**: clipboard → slot tại `pasteTarget` → auto advance `(pasteTarget+1)%5`
 - **Score all**: `handleCalculateAll` → `calculateSetScore` (1 call duy nhất, EVC full-mode) → cập nhật scoreResult từng slot
-- **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → `saveEchoSet` với slots có `echo_id`
-- **Load set**: fill slots từ saved data, set character + totalER
+- **Save set**: `findOrCreateEcho` mỗi slot → lấy `echo_id` → build body → `handleSave(mode)`:
+  - `mode='new'` → `saveEchoSet` (POST, INSERT) rồi gán `editingSetId = created.id` (bám luôn set vừa tạo để lần sau Update).
+  - `mode='update'` (khi `editingSetId≠null`) → `updateEchoSet(id, body)` (PUT) ghi đè đúng set đang load.
+  - UI: đang edit → nút **Update** (overwrite) + **Save as new**; chưa edit → nút **Save** thường.
+- **Load set**: fill slots + character + totalER, **set `editingSetId = saved.id`** và prefill `saveName`. Đổi character (`handleCharacterChange`) hoặc xoá đúng set đang edit → reset `editingSetId=null`. (Trước đây Save **luôn** tạo set mới, gây trùng tên — xem `.agent/BACKEND.md` PUT /sets/{id}.)
 
 ## Colors (Tailwind custom)
 

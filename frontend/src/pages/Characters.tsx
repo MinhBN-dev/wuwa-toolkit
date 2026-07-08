@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Pencil, X, Users } from 'lucide-react'
-import { getCharacters, getCharacterProfiles, upsertCharacterProfile, bulkUpsertCharacterProfiles } from '../services/api'
-import type { Character } from '../types/echo'
+import { getCharacters, getCharacterProfiles, upsertCharacterProfile, bulkUpsertCharacterProfiles, getEchoSets } from '../services/api'
+import type { Character, SavedEchoSet } from '../types/echo'
+import { getTierLabel, getTierClass } from '../utils/tier'
 import {
   getBaseName,
   getCharacterIcon,
@@ -59,6 +61,21 @@ export default function CharactersPage() {
     queryKey: ['character-profiles'],
     queryFn: getCharacterProfiles,
   })
+
+  const { data: savedSets = [] } = useQuery({ queryKey: ['echo-sets'], queryFn: getEchoSets })
+
+  // Group saved sets by character BASE name (so e.g. an "Iuno (Sub DPS)" set
+  // shows on the deduped "Iuno" card). Highest set_score first.
+  const setsByBase = useMemo(() => {
+    const m: Record<string, SavedEchoSet[]> = {}
+    for (const s of savedSets) {
+      const key = getBaseName(s.character_name ?? '')
+      if (!key) continue
+      ;(m[key] ??= []).push(s)
+    }
+    for (const k in m) m[k].sort((a, b) => (b.set_score ?? 0) - (a.set_score ?? 0))
+    return m
+  }, [savedSets])
 
   const statuses: Record<string, BuildStatus> = {}
   const notes: Record<string, string> = {}
@@ -236,6 +253,7 @@ export default function CharactersPage() {
             const stColor = STATUS_COLOR[status]
             const note = notes[base] ?? ''
             const isEditing = editingNote === base
+            const charSets = setsByBase[base] ?? []
 
             return (
               <div
@@ -339,6 +357,18 @@ export default function CharactersPage() {
                     <span className="line-clamp-2">{note || 'Add note…'}</span>
                   </button>
                 )}
+
+                {/* Linked echo-set scores (hover a chip for per-echo detail) */}
+                {charSets.length > 0 && (
+                  <div className="w-full pt-1.5 mt-auto border-t border-ww-border/40 flex flex-col items-center gap-1">
+                    <span className="font-display uppercase tracking-wider text-[8px] text-ww-muted/50 leading-none">
+                      {charSets.length === 1 ? 'Build' : `${charSets.length} Builds`}
+                    </span>
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {charSets.map(s => <SetScoreChip key={s.id} set={s} />)}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -349,6 +379,70 @@ export default function CharactersPage() {
         Click portrait or status badge to cycle · Click note area to edit · Server-synced
       </p>
     </div>
+  )
+}
+
+/** A set-score chip with a portal hover popover listing each echo's score.
+ *  Portal + position:fixed avoids the card's clip-path / overflow clipping. */
+function SetScoreChip({ set }: { set: SavedEchoSet }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [tip, setTip] = useState<{ x: number; y: number; below: boolean } | null>(null)
+
+  const score = set.set_score ?? 0
+  const label = set.set_tier ?? getTierLabel(score)
+  const chipCls = getTierClass(label)
+  const slots = set.slots.filter(s => s.score_percent != null)
+
+  const show = () => {
+    const r = ref.current?.getBoundingClientRect()
+    if (!r) return
+    const below = r.top < 240  // flip under the chip when too close to the top
+    setTip({ x: r.left + r.width / 2, y: below ? r.bottom + 8 : r.top - 8, below })
+  }
+  const hide = () => setTip(null)
+
+  return (
+    <>
+      <button
+        ref={ref}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        className={`readout text-[10px] leading-none px-1.5 py-0.5 rounded border cursor-default ${chipCls}`}
+      >
+        {score.toFixed(1)}
+      </button>
+
+      {tip && createPortal(
+        <div
+          className={`fixed z-[200] -translate-x-1/2 pointer-events-none ${tip.below ? '' : '-translate-y-full'}`}
+          style={{ left: Math.min(Math.max(tip.x, 130), window.innerWidth - 130), top: tip.y }}
+        >
+          <div className="bg-ww-bg-deep/95 border border-ww-border-glow rounded-md shadow-2xl px-3 py-2 min-w-[210px] backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-3 pb-1.5 mb-1.5 border-b border-ww-border/60">
+              <span className="font-display text-xs text-ww-text truncate">{set.name}</span>
+              <span className={`readout text-xs px-1 rounded border ${chipCls}`}>{score.toFixed(1)}</span>
+            </div>
+            <div className="space-y-0.5">
+              {slots.map((sl, i) => {
+                const slLabel = sl.tier_label ?? getTierLabel(sl.score_percent ?? 0)
+                return (
+                  <div key={i} className="flex items-center justify-between gap-3 text-[11px]">
+                    <span className="text-ww-muted truncate max-w-[150px]">{sl.echo_name || `Echo ${i + 1}`}</span>
+                    <span className={`readout ${getTierClass(slLabel).split(' ')[0]}`}>
+                      {(sl.score_percent ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="font-display uppercase tracking-wider text-[9px] text-ww-muted/60 mt-1.5 text-right">{label}</div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 

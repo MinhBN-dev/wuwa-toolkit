@@ -67,6 +67,9 @@ export const acknowledgeEvcUpdate = (date: string) =>
 export const saveEchoSet = (data: EchoSetSaveRequest) =>
   api.post<SavedEchoSet>('/sets', data).then(r => r.data)
 
+export const updateEchoSet = (id: string, data: EchoSetSaveRequest) =>
+  api.put<SavedEchoSet>(`/sets/${id}`, data).then(r => r.data)
+
 export const getEchoSets = () =>
   api.get<SavedEchoSet[]>('/sets').then(r => r.data)
 

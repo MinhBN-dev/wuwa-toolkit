@@ -80,18 +80,29 @@ _DEFAULT_ER = [130.0, 0.5, 125.0]  # [req_er, er_imp, rc]
 
 # ─── ER helper functions ─────────────────────────────────────────────────────
 
-def _av_er(er_net_av: float, er_ssr: float, er_med: float, er_imp: float) -> float:
-    """AV contribution of the echo's ER sub-stat."""
-    if er_net_av <= 0 or er_imp <= 0:
-        return 0.0
-    return min(er_ssr / er_med, er_net_av / er_med) * er_imp
+# Surplus buffer (ER) — EVC treats the ER target as a *range above* the target:
+# a small surplus (≤ this much) is not punished, and any larger surplus is
+# discounted by this amount before crediting. Ported from evc_engine.main().
+_ER_SURPLUS_BUFFER = 3.1
 
 
-def _ep_er(er_net_ep: float, er_med: float, er_imp: float) -> float:
-    """EP contribution slot weight for ER."""
-    if er_net_ep <= 0 or er_imp <= 0:
-        return 0.0
-    return min(er_net_ep / er_med, 1.0) * er_imp
+def _init_er_net(total_er_val: float, req_er: float) -> float:
+    """
+    Initial ER 'net' state shared across an echo/build (EVC sign: <0 = deficit).
+    Mirrors evc_engine.main():
+      er_net = total_er - req_er        (only when req_er > 100, else 0)
+      0 < er_net ≤ 3.1  → 0             ("range above target" — don't punish)
+      er_net > 3.1      → er_net - 3.1  (surplus discount / 07.06.2026 fix)
+    """
+    if req_er != 0 and req_er > 100:
+        er_net = total_er_val - req_er
+    else:
+        er_net = 0.0
+    if 0 < er_net <= _ER_SURPLUS_BUFFER:
+        er_net = 0.0
+    elif er_net > _ER_SURPLUS_BUFFER:
+        er_net -= _ER_SURPLUS_BUFFER
+    return er_net
 
 
 # ─── Tier ────────────────────────────────────────────────────────────────────
@@ -147,76 +158,16 @@ def calculate_score(
 
     req_er, er_imp, rc = char_er
     total_er_val = total_er if total_er is not None else 100.0
-    er_med = SUBSTAT_MEDIANS["ER(%)"]
 
-    # Find ER sub-stat value from the echo first
-    er_ssr = 0.0
-    for s in sub_stats:
-        evc_name = STAT_NAME_MAP.get(s.get("type", ""), "")
-        if evc_name == "ER(%)":
-            er_ssr = float(s.get("value", 0))
-            break
-
-    # ER from all sources OTHER than this echo's ER sub-stat
-    total_er_other = total_er_val - er_ssr
-
-    # How much ER this echo still needs to provide (capped at 0 if already met)
-    # Both AV and EP use req_er as the threshold (not rc)
-    er_net_av = max(0.0, req_er - total_er_other)
-    er_net_ep = max(0.0, req_er - total_er_other)
-
-    # ── Calculate AV ──
-    av = 0.0
-    breakdown: dict[str, float] = {}
-
-    for s in sub_stats:
-        raw_type = s.get("type", "")
-        value = float(s.get("value", 0))
-        evc_name = STAT_NAME_MAP.get(raw_type, "")
-
-        if not evc_name:
-            continue  # unknown stat
-
-        display_name = EVC_TO_DISPLAY.get(evc_name, raw_type)
-
-        if evc_name == "ER(%)":
-            contrib = _av_er(er_net_av, er_ssr, er_med, er_imp)
-        else:
-            weight = char_rv.get(evc_name, 0.0)
-            median = SUBSTAT_MEDIANS.get(evc_name, 1.0)
-            contrib = (value / median) * weight
-
-        av += contrib
-        breakdown[display_name] = round(contrib, 4)
-
-    # ── Calculate EP (top-5 slot weights) ──
-    er_ep_weight = _ep_er(er_net_ep, er_med, er_imp)
-    all_weights = list(char_rv.values()) + [er_ep_weight]
-    # top 5 largest weights
-    top5 = heapq.nlargest(5, all_weights)
-    ep = sum(top5)
-
-    if ep <= 0:
-        return {
-            "score": 0.0,
-            "score_percent": 0.0,
-            "tier": "Unbuilt",
-            "tier_label": "Unbuilt",
-            "breakdown": breakdown,
-            "max_possible": 0.0,
-        }
-
-    es = (av / ep) * 100.0
-    tier_label = _get_tier_label(es)
-
-    return {
-        "score": round(av, 4),
-        "score_percent": round(es, 2),
-        "tier": tier_label,
-        "tier_label": tier_label,
-        "breakdown": breakdown,
-        "max_possible": round(ep, 4),
-    }
+    # A single echo is exactly one iteration of EVC 'full' mode — delegate to the
+    # stateful scorer so single-echo and set scoring share identical ER logic.
+    er_net = _init_er_net(total_er_val, req_er)
+    result, _, _ = _score_one_stateful(
+        sub_stats, char_rv, er_imp, req_er, er_net, er_net
+    )
+    # Single-echo endpoint historically reports 2-dp percent.
+    result["score_percent"] = round(result["score_percent"], 2)
+    return result
 
 
 def _score_one_stateful(
@@ -239,6 +190,10 @@ def _score_one_stateful(
         if STAT_NAME_MAP.get(s.get("type", ""), "") == "ER(%)":
             er_ssr = float(s.get("value", 0))
             break
+
+    # Characters needing < 100 ER don't value the ER substat at all (EVC zeroes it).
+    if req_er < 100:
+        er_ssr = 0.0
 
     # ── AV ──
     av = 0.0
@@ -335,8 +290,8 @@ def calculate_set_score(
     req_er, er_imp, rc = char_data["er"]
     total_er_val = total_er if total_er is not None else 100.0
 
-    # Initial ER net (EVC sign: negative = deficit)
-    er_net = (total_er_val - req_er) if req_er > 100 else 0.0
+    # Initial ER net (EVC sign: negative = deficit), with surplus-range buffer.
+    er_net = _init_er_net(total_er_val, req_er)
     er_net_av = er_net
     er_net_ep = er_net
 
