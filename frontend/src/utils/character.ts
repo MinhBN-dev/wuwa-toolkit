@@ -24,11 +24,13 @@ export function getBaseName(name: string): string {
   return name.replace(/\s*\(.*\)$/, '').trim()
 }
 
-/** Convert base name to icon slug. */
+/** Convert base name to icon slug.
+ *  ":" in variant names ("Yangyang: Xuanling") is dropped so the slug collapses
+ *  to a single hyphen ("yangyang-xuanling"), not "yangyang:-xuanling". */
 export function getCharacterSlug(name: string): string {
   const base = getBaseName(name)
   if (SLUG_OVERRIDES[base]) return SLUG_OVERRIDES[base]
-  return base.toLowerCase().replace(/\s+/g, '-')
+  return base.toLowerCase().replace(/:/g, ' ').trim().replace(/\s+/g, '-')
 }
 
 /** Full URL for the character's icon (served as static asset). */
