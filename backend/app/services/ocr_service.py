@@ -391,10 +391,20 @@ async def _try_anthropic(image_bytes: bytes, mime_type: str) -> dict | None:
 # Stat name → standard display name
 # Handles OCR variants like "Crit. Rate", "CRIT RATE", "Resonance Skill DMG Bonus"
 _STAT_PATTERNS: list[tuple[str, str]] = [
-    (r'resonance\s+skill|skill\s+dmg',              'Skill DMG%'),
-    (r'liberation\s+dmg|resonance\s+lib',            'Liberation DMG%'),
-    (r'basic\s+att?a?ck?\s+dmg|basic\s+atk\s+dmg',  'Basic ATK DMG%'),
-    (r'heavy\s+att?a?ck?\s+dmg|heavy\s+atk\s+dmg',  'Heavy ATK DMG%'),
+    # DMG-bonus lines ("Basic Attack DMG Bonus", "Resonance Skill DMG Bonus", …) are
+    # the longest labels in-game and the most OCR-fragile: a dropped space
+    # ("BasicAttack"), a garbled "DMG" ("DMC"/"OMG") or "Attack" ("Attock") would break
+    # a strict `basic\s+attack\s+dmg` match and silently drop the WHOLE sub-stat — the
+    # reported "basic attack dmg bonus line frequently not read". Each of
+    # basic/heavy/skill/liberation appears in exactly ONE stat name across all echo
+    # main- and sub-stats, so keying on the leading word alone is unambiguous and far
+    # more robust to garbling of the trailing "Attack/DMG/Bonus" words. Start-anchored
+    # (\b) to avoid matching mid-word noise; no trailing boundary so "basicattack" (lost
+    # space) still matches.
+    (r'\bskill|resonance\s*skill',                   'Skill DMG%'),
+    (r'\bliberation|resonance\s*lib',                'Liberation DMG%'),
+    (r'\bbasic',                                      'Basic ATK DMG%'),
+    (r'\bheavy',                                      'Heavy ATK DMG%'),
     (r'crit\.?\s*rate',                              'Crit Rate'),
     (r'crit\.?\s*dmg|crit\.?\s*damage',              'Crit DMG'),
     (r'energy\s+regen',                              'ER%'),
