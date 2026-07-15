@@ -160,12 +160,16 @@ function StatRow({ label, value, valueClass = 'text-ww-text' }: {
   )
 }
 
-/** A label / value / progress-bar block used in the Luck Rating panel. */
-function LuckStat({ label, value, fillPct, color = 'bg-amber-400' }: {
-  label: string; value: string; fillPct: number; color?: string
+/** A label / value / progress-bar block used in the Luck Rating panel.
+ *  `muted` renders a dimmed N/A placeholder that still occupies a full bar's
+ *  height — used so every pool's Luck Rating panel keeps the same height (Pool 1
+ *  has a 50/50 metric the other pools don't), preventing the card from resizing
+ *  when switching pool tabs. */
+function LuckStat({ label, value, fillPct, color = 'bg-amber-400', muted = false, title }: {
+  label: string; value: string; fillPct: number; color?: string; muted?: boolean; title?: string
 }) {
   return (
-    <div className="space-y-1">
+    <div className={`space-y-1 ${muted ? 'opacity-40' : ''}`} title={title}>
       <div className="flex items-baseline justify-between">
         <span className="text-sm text-ww-muted">{label}</span>
         <span className="readout text-base text-ww-text">{value}</span>
@@ -245,17 +249,32 @@ function PoolCard({
               fillPct={pool.pull_ratio * 20}
             />
           )}
-          {pool.win_rate_50_50 != null && (
+          {/* 50/50 slot — always a bar-shaped row so every pool's Luck Rating
+              panel is the same height (keeps the card from resizing across tabs). */}
+          {pool.win_rate_50_50 != null ? (
             <LuckStat
               label="50/50 Wins"
               value={`${pool.win_rate_50_50.toFixed(2)}%`}
               fillPct={pool.win_rate_50_50}
             />
-          )}
-          {pool.pool_type === 1 && pool.win_rate_50_50 == null && pool.five_star_count > 0 && (
-            <p className="text-xs text-ww-muted italic">
-              Need a non-guaranteed 5★ to compute 50/50.
-            </p>
+          ) : pool.pool_type === 1 ? (
+            <LuckStat
+              label="50/50 Wins"
+              value="N/A"
+              fillPct={0}
+              muted
+              title={pool.five_star_count > 0
+                ? 'Need a non-guaranteed 5★ to compute 50/50.'
+                : 'Pull a 5★ to compute 50/50.'}
+            />
+          ) : (
+            <LuckStat
+              label="50/50 Wins"
+              value="N/A"
+              fillPct={0}
+              muted
+              title="50/50 only applies to the featured-resonator pool."
+            />
           )}
         </div>
       </div>
