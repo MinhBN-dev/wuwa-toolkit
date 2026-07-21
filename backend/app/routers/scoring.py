@@ -38,6 +38,15 @@ async def calculate_echo_score(
     return ScoreResponse(**result, character_name=character_name)
 
 
+@router.post("/recalculate-all")
+async def recalculate_all_scores(db: AsyncSession = Depends(get_db)):
+    """Re-score every saved echo set (set-context) and echo (single) with the
+    current weights/formula, overwriting stored scores. Run this after any
+    scoring change. A no-op when weights are unchanged."""
+    from app.services.recalc_service import recalculate_all
+    return await recalculate_all(db)
+
+
 @router.post("/calculate-set", response_model=SetScoreResponse)
 async def calculate_echo_set_score(
     payload: SetScoreRequest,

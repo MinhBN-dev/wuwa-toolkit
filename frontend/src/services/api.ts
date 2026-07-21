@@ -48,6 +48,12 @@ export const calculateScore = (data: ScoreRequest) =>
 export const calculateSetScore = (data: SetScoreRequest) =>
   api.post<SetScoreResponse>('/score/calculate-set', data).then(r => r.data)
 
+/** Re-score every saved set + echo with current weights. Run after a weight/formula change. */
+export const recalculateAllScores = () =>
+  api.post<{ sets_total: number; sets_updated: number; echoes_total: number; echoes_updated: number }>(
+    '/score/recalculate-all',
+  ).then(r => r.data)
+
 // EVC Status
 export const getEvcStatus = () =>
   api.get<{
