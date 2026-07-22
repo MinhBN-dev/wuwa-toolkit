@@ -2,9 +2,11 @@
 Wuthering Waves echo scoring data.
 Source: https://github.com/AstyuteChick/Echo-Value-Calculator (evc_engine.py)
 Ported 1:1 — do NOT manually edit weights; sync from upstream repo.
-Synced to upstream EVC 4.1 (reviewed through 28.06.2026).
+Synced to upstream EVC 4.1 (reviewed through 16.07.2026).
 Upstream 24.06/28.06.2026 only added a non-Default Hiyuki team option
 ("Lucilla + Chisa" 107 ER) — Hiyuki Default stays 120.0, no port needed.
+16.07.2026: ported "Xuanling Yangyang" (upstream key) as "Yangyang: Xuanling"
+— Havoc DPS Sword, Heavy%-focused; req_er = Default 120.0, imp 0.6, rc 125.0.
 """
 
 # Sub-stat names (order matches weight arrays below)
@@ -362,6 +364,11 @@ CHARACTER_DATA: dict[str, dict] = {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.35, 0.0, 0.5*0.15, 0.5*0.45]),
         "er": [115.0, 0.9, 100.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "SubDPS",
+    },
+    "Yangyang: Xuanling": {
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.9, 0.0, 0.0]),
+        "er": [120.0, 0.6, 125.0], "anal": True,
+        "element": "Havoc", "weapon": "Sword", "role": "DPS",
     },
     "Yinlin": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.7, 0.5*0.15]),

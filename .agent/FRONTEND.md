@@ -37,7 +37,7 @@ frontend/
         ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
         ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
         ├── Characters.tsx   Hero + 4 stat tiles + portrait grid; mỗi card có chip điểm các echo-set gắn nhân vật (hover → popover điểm từng echo, render qua portal tránh clip-path)
-        └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win), pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
+        └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win). The `LuckStat` 50/50 slot ALWAYS renders (real bar only for pool 1; an INVISIBLE `placeholder` spacer — `visibility:hidden`, `aria-hidden` — for pools 2/3/4) so every pool card is equal-height across tabs without a distracting dimmed N/A row. Pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
 ```
 
 ## Routes
@@ -81,6 +81,7 @@ deleteEcho(id)               DELETE /echoes/{id}
 extractEchoStats(file)       POST /ocr/extract     — timeout 90s
 calculateScore(data)         POST /score/calculate
 calculateSetScore(data)      POST /score/calculate-set  — EVC full mode, dùng cho Set page
+recalculateAllScores()       POST /score/recalculate-all — re-score mọi set+echo đã lưu bằng weight hiện tại (chạy sau khi đổi weight/công thức)
 getEchoSets()                GET /sets
 saveEchoSet(data)            POST /sets
 updateEchoSet(id, data)      PUT /sets/{id}   (overwrite in-place)
@@ -150,7 +151,8 @@ editingSetId: string | null // set đang load để sửa; ≠null → Save = ov
   - `mode='new'` → `saveEchoSet` (POST, INSERT) rồi gán `editingSetId = created.id` (bám luôn set vừa tạo để lần sau Update).
   - `mode='update'` (khi `editingSetId≠null`) → `updateEchoSet(id, body)` (PUT) ghi đè đúng set đang load.
   - UI: đang edit → nút **Update** (overwrite) + **Save as new**; chưa edit → nút **Save** thường.
-- **Load set**: fill slots + character + totalER, **set `editingSetId = saved.id`** và prefill `saveName`. Đổi character (`handleCharacterChange`) hoặc xoá đúng set đang edit → reset `editingSetId=null`. (Trước đây Save **luôn** tạo set mới, gây trùng tên — xem `.agent/BACKEND.md` PUT /sets/{id}.)
+- **Load set**: fill slots + character + totalER, **set `editingSetId = saved.id`** và prefill `saveName`. Đổi character (`handleCharacterChange`) hoặc xoá đúng set đang edit → reset `editingSetId=null`. (Trước đây Save **luôn** tạo set mới, gây trùng tên — xem `.agent/BACKEND.md` PUT /sets/{id}.) `handleLoadSet` chỉ hiển thị **điểm đã lưu**, KHÔNG re-score — điểm là snapshot đóng băng.
+- **Recalculate all**: nút trong panel Saved Sets → `recalculateAllScores()` (`POST /score/recalculate-all`) → toast báo `{sets_updated, echoes_updated}` → invalidate `['echo-sets']` + `['echoes']`. Dùng sau khi đổi weight/công thức (điểm lưu là snapshot, không tự tính lại). Xem `.agent/BACKEND.md → Recalculating saved scores`.
 
 ## Colors (Tailwind custom)
 

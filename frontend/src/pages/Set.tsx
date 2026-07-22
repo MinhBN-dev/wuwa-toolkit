@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Loader2, X, RefreshCw, Save, FolderOpen, Trash2, Crosshair, Layers, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, updateEchoSet, getEchoSets, deleteEchoSet } from '../services/api'
+import { getCharacters, getGameData, extractEchoStats, calculateSetScore, findOrCreateEcho, saveEchoSet, updateEchoSet, getEchoSets, deleteEchoSet, recalculateAllScores } from '../services/api'
 import type { Character, SubStat, ScoreResponse, OcrResult, SavedEchoSet } from '../types/echo'
 import { getTierLabel, getTierClass, TIER_THRESHOLDS } from '../utils/tier'
 import ErInfo from '../components/ErInfo'
@@ -310,6 +310,7 @@ export default function SetPage() {
   const [saveName, setSaveName] = useState('')
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [showLoadPanel, setShowLoadPanel] = useState(false)
+  const [recalcLoading, setRecalcLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
   // id of the currently-loaded set; non-null = Save overwrites it instead of creating a new set
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -495,6 +496,24 @@ export default function SetPage() {
       qc.invalidateQueries({ queryKey: ['echo-sets'] })
     } catch {
       toast.error('Delete failed')
+    }
+  }
+
+  const handleRecalcAll = async () => {
+    setRecalcLoading(true)
+    const toastId = toast.loading('Recalculating all saved scores…')
+    try {
+      const r = await recalculateAllScores()
+      toast.success(
+        `Recalculated: ${r.sets_updated}/${r.sets_total} sets, ${r.echoes_updated}/${r.echoes_total} echoes updated`,
+        { id: toastId },
+      )
+      qc.invalidateQueries({ queryKey: ['echo-sets'] })
+      qc.invalidateQueries({ queryKey: ['echoes'] })
+    } catch {
+      toast.error('Recalculation failed', { id: toastId })
+    } finally {
+      setRecalcLoading(false)
     }
   }
 
@@ -713,9 +732,20 @@ export default function SetPage() {
               <FolderOpen className="w-4 h-4" /> Saved Sets
               <span className="text-ww-muted ml-2 normal-case tracking-normal">({savedSets.length})</span>
             </h3>
-            <button onClick={() => setShowLoadPanel(false)} className="text-ww-muted hover:text-ww-cyan">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRecalcAll}
+                disabled={recalcLoading}
+                title="Re-score every saved set & echo with the current weights (run after a weight/formula change)"
+                className="flex items-center gap-1.5 text-xs font-display uppercase tracking-wider text-ww-cyan hover:text-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${recalcLoading ? 'animate-spin' : ''}`} />
+                Recalculate all
+              </button>
+              <button onClick={() => setShowLoadPanel(false)} className="text-ww-muted hover:text-ww-cyan">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {savedSets.length === 0 ? (

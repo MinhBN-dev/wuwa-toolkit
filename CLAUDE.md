@@ -76,6 +76,8 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **`score_percent` is uncapped** — values > 100 are valid. Frontend bars use `Math.min(score, 100)` for visual width only; displayed numbers show the real value.
 
+- **Saved scores are frozen snapshots** — `echoes.score` and `echo_sets.set_score`/slot scores are stored, returned verbatim on read, never recomputed. Editing existing weights/formula/thresholds/`STAT_NAME_MAP` makes them stale → run `POST /score/recalculate-all` (UI: "Recalculate all" on the Set page). Adding a NEW character doesn't need it. Detail: `.agent/BACKEND.md → Recalculating saved scores`.
+
 - **Stat name duality** — frontend/OCR uses display names (`"Crit Rate"`, `"ATK%"`, `"ER%"`); EVC algorithm uses internal names (`"Crit Rate(%)"`, `"Atk(%)"`, `"ER(%)"`). Mapping: `scoring_service.py → STAT_NAME_MAP`.
 
 - **Echo dedup is the only save path** — `POST /echoes/find-or-create` (fingerprint = name + cost + sorted substats rounded 3dp). There is **no** plain `POST /echoes`.
