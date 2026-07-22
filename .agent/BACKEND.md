@@ -276,8 +276,10 @@ The export URL `record_id` token expires after a short time — re-export from i
 
 **URL acquisition flow** (in addition to in-game Export Records button):
 - `frontend/public/get-convene-url.ps1` is served at site root. Users on Windows run `iex (irm 'http://<host>/get-convene-url.ps1')` in PowerShell.
-- Script auto-discovers WuWa install path (registry → firewall rules → common drive paths), greps `Client.log` for the gacha URL, copies to clipboard.
-- Game must be running with Convene → History opened at least once (URL only appears in log after that webview loads).
+- Script auto-discovers WuWa install path (`$GamePathOverride` at top of file → MUI-cache registry → firewall rules → uninstall registry → common drive paths incl. Steam/SteamLibrary/Epic). Resolves either the base folder or its `Wuthering Waves Game` subfolder. Scans every `*.log` in `Client\Saved\Logs` (newest first) + the KRSDKWebView `debug.log`, then copies the gacha URL to clipboard.
+- **`Client.log` is XOR-obfuscated by the game (Kuro)** — the URL is invisible to a raw read. De-obfuscate per byte before regex: `low nibble odd → byte XOR 0xA5`, else `byte XOR 0xEF`, then decode UTF-8. `debug.log` is plaintext (no XOR). This is THE reason a naive scan reports "0 gacha hits" even though the URL is present. Scheme credit: wuwatracker / @RabbyDevs / @kyuxu.
+- **Reads logs via a shared handle** (`[System.IO.File]::Open` with `FileShare.ReadWrite|Delete`), NOT `Get-Content` — the game holds its logs open while running, so plain reads silently return nothing. Regex (matches wuwatracker): `https://aki-gm-resources(-oversea)?\.aki-game\.(net|com)/aki/gacha/index\.html#/record[^"\s]*`, take the last match of the newest `Client.log`.
+- Game must be running with Convene → History opened at least once (URL only appears in log after that webview loads). Keep the game open when running the script.
 
 **Synthetic `pull_id`** — the WuWa gacha API doesn't include a unique id per record, so we generate one. `pull_id = "{YYYYMMDDHHMMSS}-{NN}"` (`synth_pull_id`): the pull's timestamp + a counter for items sharing that exact second (a 10-pull = 10 items in one second, NN = 00..09). Combined with `(player_id, card_pool_type)` it forms the UNIQUE dedup key for `ON CONFLICT DO NOTHING`.
 

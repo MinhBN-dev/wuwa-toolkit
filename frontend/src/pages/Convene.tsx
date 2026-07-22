@@ -537,9 +537,9 @@ export default function ConvenePage() {
           </button>
         </div>
         <ol className="text-[11px] text-ww-muted space-y-1 list-decimal pl-4">
-          <li>Launch Wuthering Waves and open <span className="text-ww-text">Convene → History</span> (any banner).</li>
+          <li>Launch Wuthering Waves and open <span className="text-ww-text">Convene → History</span> (any banner); wait for the pulls to load. <span className="text-ww-text">Keep the game open.</span></li>
           <li>Open <span className="text-ww-text">Windows PowerShell</span> on that PC and paste the command above.</li>
-          <li>Script auto-finds your install, reads <span className="text-ww-text">Client.log</span>, copies the URL to your clipboard.</li>
+          <li>Script auto-finds your install, reads the game logs (works while the game is running), copies the URL to your clipboard.</li>
           <li>Paste the URL below and click <span className="text-ww-text">Sync</span>.</li>
         </ol>
       </section>
