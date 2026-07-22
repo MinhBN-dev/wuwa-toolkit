@@ -83,6 +83,7 @@ backend/
 | POST | /api/v1/ocr/extract | Upload image → extract stats |
 | POST | /api/v1/score/calculate | Single echo score (stateless) |
 | POST | /api/v1/score/calculate-set | Full set score (stateful ER — **dùng cho Set page**) |
+| POST | /api/v1/score/recalculate-all | Re-score ALL saved sets + echoes with current weights; overwrites stored scores. Run after a weight/formula change (see "Recalculating saved scores"). Returns `{sets_total, sets_updated, echoes_total, echoes_updated}` |
 | GET | /api/v1/sets | List saved echo sets |
 | POST | /api/v1/sets | Save echo set (always **INSERT** mới) |
 | PUT | /api/v1/sets/{id} | Overwrite set in-place (load → edit → Update) |
@@ -172,6 +173,18 @@ Char cần `req_er < 100` (vd Phoebe Main DPS, Danjin, Phrolova): EVC **zero h�
 
 DB columns `echoes.tier` + `echo_sets.set_tier` là `VARCHAR(50)` lưu chính chuỗi label này. Source of truth: `data/game_data.py → TIER_THRESHOLDS` (đối ứng `frontend/src/utils/tier.ts`).
 
+## Recalculating saved scores (frozen-snapshot model)
+
+Điểm số là **snapshot đóng băng** lưu trong DB (`echoes.score/score_percent/tier`; `echo_sets.set_score/set_tier` + mỗi `slots[].score/score_percent/tier`). Frontend tính điểm rồi gửi kèm payload; `GET /sets` và `GET /echoes` trả **nguyên xi**, KHÔNG tính lại khi đọc; mở lại set (`Set.tsx handleLoadSet`) cũng hiển thị điểm đã lưu. ⇒ **Sửa weight/công thức/threshold/stat-map làm mọi điểm đã lưu stale.**
+
+Sau bất kỳ thay đổi ảnh hưởng score (rv/`er` trong `CHARACTER_DATA`, `_init_er_net`/`_ER_SURPLUS_BUFFER`, `TIER_THRESHOLDS`, `STAT_NAME_MAP`, medians/max, logic `scoring_service`) → gọi **`POST /score/recalculate-all`** (`services/recalc_service.py → recalculate_all`). Thêm nhân vật MỚI thì KHÔNG cần (điểm cũ không đổi).
+
+`recalculate_all` tái tạo **đúng** convention lúc lưu của frontend nên weight không đổi ≈ no-op (chỉ chuẩn hoá float):
+- **Sets** dùng set-context (`calculate_set_score`, ER chia sẻ tuần tự); `set_score` = mean `score_percent` qua các slot **có data & ≠ "Not Applicable"** (khớp `Set.tsx currentSetScore`, KHÔNG ÷5); slot trống giữ `null`.
+- **Echoes lẻ** (bảng dedup) dùng single-echo `calculate_score` theo `character_id` + `total_er` của chính echo → khớp trang Analyze. Lần chạy đầu có thể chỉnh vài echo có điểm cache bị lần lưu-set (set-context) ghi đè về đúng giá trị standalone.
+
+Validate lại bằng parity harness sau khi recalc. UI: nút **"Recalculate all"** trong panel Saved Sets (Set page).
+
 ## Echo Deduplication
 
 Fingerprint = `echo_name` + `echo_cost` + substats sorted by `type` (values rounded 3dp).
@@ -211,7 +224,7 @@ Tham khảo nhanh để port: `python3` import upstream `evc_engine.py` rồi so
 
 Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv damage-type weights; (2) **Aemeath tách 2 build** `(Rupture)`/`(Fusion Burst)`; (3) **Yuanwu `anal` False→True** (giờ scorable); (4) thêm Lucy / Rebecca / Lucilla(×2); (5) rename theo upstream: Brant, `Aalto/Iuno/Jianxin` suffix, Rover (`Aero Rover`→`Rover (Aero)`...), Mornye swap (our pure-support→`Mornye (Pure Support)`, our crit/def→`Mornye`).
 
-**Rename gotcha:** `seed_characters()` chỉ **insert-only** — đổi tên 1 key trong `CHARACTER_DATA` KHÔNG tự rename row trong `characters`/`echo_sets`/`character_profiles`. Phải chạy migration SQL thủ công (xem `.agent/DEVOPS.md`) + re-score data đã lưu (weight đổi → score cũ stale): re-dùng `calculate_set_score`/`calculate_score` viết script one-off, KHÔNG re-implement. `character_profiles` key theo **base name** (`getBaseName` cắt `(...)`), `echo_sets.character_name` key theo **full CHARACTER_DATA key** → chỉ cái sau cần đổi khi rename suffix. Rover là ngoại lệ: `getBaseName` (frontend `utils/character.ts`) special-case `"Rover ("` để 3 variant vẫn là 3 card riêng, + `SLUG_OVERRIDES` trỏ portrait `aero-rover.webp`...
+**Rename gotcha:** `seed_characters()` chỉ **insert-only** — đổi tên 1 key trong `CHARACTER_DATA` KHÔNG tự rename row trong `characters`/`echo_sets`/`character_profiles`. Phải chạy migration SQL thủ công (xem `.agent/DEVOPS.md`) + re-score data đã lưu (weight đổi → score cũ stale) qua **`POST /score/recalculate-all`** (xem "Recalculating saved scores"). `character_profiles` key theo **base name** (`getBaseName` cắt `(...)`), `echo_sets.character_name` key theo **full CHARACTER_DATA key** → chỉ cái sau cần đổi khi rename suffix. Rover là ngoại lệ: `getBaseName` (frontend `utils/character.ts`) special-case `"Rover ("` để 3 variant vẫn là 3 card riêng, + `SLUG_OVERRIDES` trỏ portrait `aero-rover.webp`...
 
 ## Character Seeding
 
@@ -240,6 +253,7 @@ Provider priority (local-first):
 - RapidOCR feeds `_parse_ocr_rows(results, provider=, confidence=)` — `(bbox, text, conf)` blocks; row-grouping by Y-proximity, then `_map_stat_name` + `_SUBSTAT_MAX_VAL` ceiling to split main stat from sub-stats
   - **Row grouping is adaptive** — threshold = `0.6 × median text height`, not a fixed 15px. A fixed gap split single lines into two rows after the upscale step (dropped/garbled sub-stats).
   - **`_map_stat_name` strips leading noise** (`+` bullet, icon glyphs ⚔/♥, stray symbols) before matching. Every in-game sub-stat row is prefixed with `+`; without stripping it the ambiguous stats (ATK/HP/DEF) read as `"+ atk"` failed the `^atk$` fullmatch and were silently dropped — root cause of missing ATK%/HP%/DEF% sub-stats.
+  - **DMG-bonus patterns key on the leading word only** — `_STAT_PATTERNS` for Basic/Heavy/Skill/Liberation match `\bbasic` / `\bheavy` / `\bskill` / `\bliberation` (start-anchored, no trailing boundary), NOT the strict `basic\s+attack\s+dmg`. "Basic Attack DMG Bonus" is the longest label in-game → most OCR-fragile; a dropped space ("BasicAttack") or garbled "DMG"/"Attack" broke the strict pattern and silently dropped the whole sub-stat. Each of those 4 words occurs in exactly ONE stat name across all echo main-/sub-stats, so leading-word keying is unambiguous and robust.
   - **Echo name = all rows ABOVE the COST row** (via `cost_idx`), filtered by `_is_name_token` (drops `+25` level badge, `COST`, single-letter skill/lock button glyphs Z/C, pure-symbol icons). Handles 2-line names; stops the Z/C buttons leaking into the name.
 - 429/quota errors skip ngay sang model kế; 5xx retry tối đa 3×
 - KHÔNG dùng `gemini-2.0-flash` — rate limit = 0 trên project mới
