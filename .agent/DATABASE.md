@@ -55,7 +55,7 @@ erDiagram
         uuid    id              PK
         varchar player_id           "WuWa game UID"
         integer card_pool_type      "1=Featured Resonator, 2=Featured Weapon, 3=Standard Resonator, …"
-        varchar pull_id             "Synthetic per-pool sequence (oldest=000000)"
+        varchar pull_id             "Synthetic timestamp-anchored id: {YYYYMMDDHHMMSS}-{NN}"
         varchar name                "Resonator or weapon name pulled"
         varchar item_type           "Resonator / Weapon"
         integer quality_level       "3 / 4 / 5"
@@ -70,7 +70,7 @@ erDiagram
 ```
 
 **Indexes / constraints:**
-- `convene_pulls`: UNIQUE `(player_id, card_pool_type, pull_id)` enables append-only `ON CONFLICT DO NOTHING` re-import.
+- `convene_pulls`: UNIQUE `(player_id, card_pool_type, pull_id)` enables append-only `ON CONFLICT DO NOTHING` re-import. `pull_id` is **timestamp-anchored** (`synth_pull_id` → `{YYYYMMDDHHMMSS}-{NN}`, NN = order within that second), NOT a positional sequence — the gacha API returns a sliding window so positional indices would shift and collide.
 - `character_profiles`: `character_name` is unique-indexed for upsert lookups.
 - `characters.name` is unique; backend auto-seeds rows from `data/game_data.py → CHARACTER_LIST` on lifespan startup (idempotent).
 
@@ -160,7 +160,7 @@ erDiagram
 
 ## Scoring Algorithm — EVC Full Mode
 
-Echoes are scored using the **EVC 3.2** algorithm:
+Echoes are scored using the **EVC 4.1** algorithm (ported 1:1 from upstream `evc_engine.py`):
 
 1. All echoes in the set are sorted: echoes **with ER substat** processed first.
 2. For each echo the algorithm computes how much of the build's ER requirement it satisfies (`er_net_av`, `er_net_ep`).

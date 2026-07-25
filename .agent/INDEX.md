@@ -12,6 +12,7 @@
 | Echo deduplication (find-or-create), EVC status | `.agent/BACKEND.md` |
 | Game data structures (`CHARACTER_DATA`, `SUBSTAT_MEDIANS`, ...) | `.agent/BACKEND.md` |
 | Backend ↔ Frontend data flow, API call timing | `.agent/BACKEND.md` |
+| DB schema / ERD, table columns, indexes, constraints | `.agent/DATABASE.md` |
 | Frontend pages, components, types, API client | `.agent/FRONTEND.md` |
 | Tier UI / colors / `tier.ts` | `.agent/FRONTEND.md` |
 | EvcBanner, Set page state, Saved page filtering | `.agent/FRONTEND.md` |
