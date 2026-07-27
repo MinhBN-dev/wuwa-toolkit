@@ -5,8 +5,8 @@ A self-hosted toolkit for **Wuthering Waves** — Echo scoring (powered by [EVC]
 ## Features
 
 ### Echo Optimizer
-- **Screenshot OCR** — upload or paste an Echo screenshot; stats are extracted automatically (EasyOCR runs locally, no API key required)
-- **Echo scoring** — weighted score per character using the EVC 3.2 formula, with tier labels (Godly → Unbuilt)
+- **Screenshot OCR** — upload or paste an Echo screenshot; stats are extracted automatically (RapidOCR runs locally, no API key required)
+- **Echo scoring** — weighted score per character using the EVC formula, with tier labels (Godly → Unbuilt)
 - **Full-set scoring** — score all 5 Echo slots together in a single EVC full-mode call (shared Energy Regen budget across the set)
 - **Echo library** — save, filter by tier/character/name, and delete Echoes
 - **Set management** — save named sets per resonator, load them back, view aggregate set score
@@ -28,8 +28,8 @@ A self-hosted toolkit for **Wuthering Waves** — Echo scoring (powered by [EVC]
 | Backend | Python 3.12 · FastAPI · SQLAlchemy (async) · asyncpg |
 | Frontend | React 18 · TypeScript · Vite · TailwindCSS v3 · Rajdhani + Inter (Google Fonts) |
 | Database | PostgreSQL 16 |
-| OCR | EasyOCR (local, primary) · Google Gemini · OpenAI · Anthropic (fallbacks) |
-| Scoring | EVC 3.2 formula |
+| OCR | RapidOCR (local ONNX, primary) · Google Gemini · OpenAI · Anthropic (fallbacks) |
+| Scoring | EVC formula (ported 1:1 from upstream `evc_engine.py`) |
 | Deployment | Docker Compose · or run components directly on the host |
 
 ---
@@ -105,7 +105,7 @@ Containers in this setup:
 | `wuwa-toolkit-backend` | internal `:8000` | FastAPI + uvicorn |
 | `wuwa-toolkit-postgres` | internal `:5432` | PostgreSQL 16 (data in `postgres_data` volume) |
 
-> **Advanced:** If you already have a shared PostgreSQL on this machine, you can disable the bundled one with a `docker-compose.override.yml`. See [docs/](docs/) or check `.gitignore` for the override pattern.
+> **Advanced:** If you already have a shared PostgreSQL on this machine, you can disable the bundled one with a `docker-compose.override.yml` — check `.gitignore` for the override pattern.
 
 ---
 
@@ -175,13 +175,13 @@ npm run build          # production build → frontend/dist/
 
 ## OCR Setup
 
-Echo screenshots are processed by **EasyOCR** running locally — no API key required and no data leaves your machine.
+Echo screenshots are processed by **RapidOCR** (local ONNX) — no API key required, no data leaves your machine, and the models ship inside the Python wheel (no separate download).
 
-Cloud providers are used as fallback if EasyOCR confidence is low or fails:
+Cloud providers are used as fallback if the local engine returns no stats:
 
 | Priority | Provider | Key var |
 |---|---|---|
-| 1 | EasyOCR (local) | — |
+| 1 | RapidOCR (local ONNX) | — |
 | 2 | Google Gemini (`gemini-2.5-flash`) | `GOOGLE_API_KEY` |
 | 3 | OpenAI (`gpt-4o-mini` → `gpt-4o`) | `OPENAI_API_KEY` |
 | 4 | Anthropic (`claude-haiku-4-5` → `claude-sonnet-4-6`) | `ANTHROPIC_API_KEY` |
@@ -192,7 +192,7 @@ Add any subset of keys to `.env` (Docker) or `backend/.env` (local) to enable fa
 
 ## Scoring Algorithm
 
-Implements the **EVC 3.2** formula:
+Implements the **EVC** formula (ported 1:1 from the upstream [`evc_engine.py`](https://github.com/AstyuteChick/Echo-Value-Calculator)):
 
 ```
 AV = Σ (value / substat_median) × character_weight   for each sub-stat
@@ -258,11 +258,14 @@ wuwa-toolkit/
 | POST | `/api/v1/ocr/extract` | Upload image → extract stats |
 | POST | `/api/v1/score/calculate` | Score a single echo |
 | POST | `/api/v1/score/calculate-set` | Score a full 5-echo set (stateful ER) |
+| POST | `/api/v1/score/recalculate-all` | Re-score all saved sets + echoes with current weights |
 | GET | `/api/v1/sets` | List saved sets |
 | POST | `/api/v1/sets` | Save an echo set |
+| PUT | `/api/v1/sets/{id}` | Overwrite an existing set in place |
 | DELETE | `/api/v1/sets/{id}` | Delete a set |
 | GET | `/api/v1/character-profiles` | Character build status + notes |
 | PUT | `/api/v1/character-profiles/{name}` | Update build status/notes |
+| POST | `/api/v1/character-profiles/bulk` | Bulk upsert build statuses |
 | GET | `/api/v1/evc-status` | Check for EVC formula updates |
 | POST | `/api/v1/convene/import` | Import pulls from in-game export URL |
 | GET | `/api/v1/convene/players` | List imported players |
@@ -281,7 +284,7 @@ Full Swagger docs at `/docs` when the backend is running.
 - Local: confirm PostgreSQL is running and `DATABASE_URL` in `backend/.env` matches your DB credentials.
 
 **OCR returns empty / wrong stats**
-- The first OCR call inside Docker downloads ~140 MB of EasyOCR models — give it a minute.
+- RapidOCR models are bundled in the wheel (no download), so the first call is only a one-time engine warm-up — give it a few seconds.
 - Try a higher-resolution screenshot (game UI scale 100% or higher).
 - Add a cloud fallback key (Gemini is free and accurate).
 
@@ -297,7 +300,7 @@ Full Swagger docs at `/docs` when the backend is running.
 
 | Source | Usage |
 |---|---|
-| [Echo Value Calculator (EVC)](https://www.echovaluecalc.com/) by **Rei** | Scoring formula, character weights, tier thresholds — all derived from EVC 3.2 |
+| [Echo Value Calculator (EVC)](https://www.echovaluecalc.com/) · [`evc_engine.py`](https://github.com/AstyuteChick/Echo-Value-Calculator) | Scoring formula, character weights, tier thresholds — all derived from EVC |
 | [Wuthering Waves](https://wutheringwaves.kurogames.com/) by **Kuro Games** | Game, Echo system, character data |
 
 > **Credit:** The scoring algorithm and character weight data are the intellectual work of the EVC team. This project reimplements the formula locally for personal use and does not claim ownership of those values.
