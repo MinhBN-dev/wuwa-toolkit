@@ -29,13 +29,15 @@ backend/
     │   ├── sets.py      CRUD: /sets (POST=insert, PUT /{id}=overwrite, GET, DELETE)
     │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
     │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
-    │   └── convene.py    Convene tracker: /convene/import|players|stats|history
+    │   ├── convene.py    Convene tracker: /convene/import|players|stats|history
+    │   └── buffs.py      GET /buffs — static team-buff matrix (no DB)
     ├── services/
     │   ├── ocr_service.py     OCR pipeline (RapidOCR + EasyOCR local + cloud fallbacks)
     │   ├── scoring_service.py EVC weighted scoring algorithm
     │   └── convene_service.py WuWa gacha API client (URL parse + fetch_all_pools)
     └── data/
-        └── game_data.py  CHARACTER_DATA, SUBSTAT_MEDIANS, CHARACTER_LIST, TIER_THRESHOLDS, ECHO_SETS, ECHO_ELEMENTS, ECHO_COSTS, MAIN_STAT_OPTIONS
+        ├── game_data.py  CHARACTER_DATA, SUBSTAT_MEDIANS, CHARACTER_LIST, TIER_THRESHOLDS, ECHO_SETS, ECHO_ELEMENTS, ECHO_COSTS, MAIN_STAT_OPTIONS
+        └── buff_data.py  BUFF_CATEGORIES, BUFF_GROUP_ORDER, BUFF_DATA, WEAPON_DATA, BUFF_CHARACTER_ORDER (team-buff + vũ khí trấn lookup, không dính scoring)
 ```
 
 ## Models
@@ -98,6 +100,7 @@ backend/
 | GET | /api/v1/convene/history | Paginated pulls (default 4★+5★ via `min_rarity`). Filters: `pool_type`, `rarity`, `min_rarity`, `skip`, `limit`. Returns `{items, total, skip, limit}`. **Per-row pity** and **`pull_no`** (1-based chronological position within the pool, incl. 3★, for the "Pull No." column) both computed by walking the entire pool oldest-first. NB: `pull_no` is server-computed, **not** derived from `pull_id` — `pull_id` is now a timestamp string so `Number(pull_id)` would be `NaN` |
 | GET | /api/v1/convene/stats | Always emits an entry for `VISIBLE_POOLS = (1,2,3,4)` even when 0 pulls. Per-pool: total, total_astrites (×160), 5★/4★ counts, current pity_5/pity_4, avg_pity_5, **pull_ratio** (5★/total), **wins_50_50 / losses_50_50 / win_rate_50_50** (only for pool 1), and 5★ list newest-first with pity-at-pull |
 | DELETE | /api/v1/convene/players/{uid} | Wipe UID's history |
+| GET | /api/v1/buffs | Static team-buff table: `{categories, group_order, characters[]}`. Read-only, no DB. Element/role resolved from `CHARACTER_DATA` by base name (see "Team buff data") |
 
 ## Data Flow
 
@@ -230,9 +233,22 @@ Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv dam
 
 `main.py → seed_characters()` chạy trên mỗi lifespan startup. Idempotent: query `select(Character.name)` → diff với `CHARACTER_LIST` từ game_data → insert những entry mới. Add character vào `CHARACTER_DATA` rồi restart backend là đủ — không cần manual SQL.
 
+## Team buff data (`data/buff_data.py` → `GET /buffs`)
+
+Dataset tra cứu cho trang `/buffs`. **Hoàn toàn tách khỏi scoring** — không service nào đọc nó, nên sửa số ở đây không bao giờ cần `POST /score/recalculate-all`.
+
+- **Nguồn**: tổng hợp tay từ skill text đã release — không dùng số beta/leak. Ưu tiên `wuwa.incin.net/resonators/{id}` (datamine, giữ nguyên văn chuỗi skill) rồi đối chiếu số với Game8 / wuthering.gg / wuwa.build. **Game8 còn dùng thuật ngữ cũ** (ví dụ Outro Verina bị ghi là "DMG Deepen" trong khi in-game là "DMG Amplified") → luôn kiểm tra chéo. Mỗi nhân vật có `patch_verified` + `sources[]`; mỗi entry có `confidence` (`high` / `medium` / `low`). `low` = nguồn không nói rõ team hay self → UI hiện dấu `?`.
+- **`WEAPON_DATA`** (cùng file) = vũ khí trấn ở **R1**, key = tên nhân vật; thiếu key = không có vũ khí trấn → FE khoá tick. `buffs` dùng chung schema, thêm `target: "self"` cho passive tự thân. **Base ATK và chỉ số chính không nằm trong `buffs`** (user chốt: chỉ tính phần cộng thêm trong mô tả) — chúng ở `base_atk` + `main_stat` để panel chi tiết hiển thị tham khảo. Router gắn vào field `weapon` của mỗi nhân vật.
+- **`BUFF_CATEGORIES`** định nghĩa **dòng** của bảng (order = order render), gom nhóm qua `group` + `BUFF_GROUP_ORDER`. **`BUFF_DATA`** key = *base name* (khớp `getBaseName` bên FE) → mỗi nhân vật 1 **cột**.
+- **Hai trục**: `seq` = cung mệnh (bảng luôn S0 → chỉ `seq: 0`; 1-6 chỉ tham khảo ở panel chi tiết) · `WEAPON_DATA` = tinh luyện vũ khí trấn R1 (tick "Trấn").
+- **Entry fields**: `cat`, `value` (None = hiệu ứng chữ, dùng `text`), `applies_to` (phạm vi: "All-Type" / "Havoc" / "Basic Attack"…), `target` (`team` | `next` | `enemy` | `self`), `seq` (0 = kit gốc, 1-6 = node trấn), `replaces` (đè entry cùng `cat` thay vì cộng dồn), `source`, `duration`, `condition`, `confidence`.
+- **Chỉ liệt kê buff chạm tới người khác.** Buff cá nhân của buffer nằm ở field `notes` cấp nhân vật.
+- Router **không** duplicate element/role — `_element_role_index()` map base name → `CHARACTER_DATA`, nên thêm nhân vật mới chỉ cần thêm vào `BUFF_DATA` (nếu đã có trong `CHARACTER_DATA`).
+- FE cộng dồn **theo từng `applies_to`**, không cộng chéo phạm vi (20% Glacio + 25% Resonance Skill là 2 multiplier khác nhau, không phải 45%).
+
 ## Schemas (schemas/echo.py)
 
-Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`.
+Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`, `BuffCategory`, `BuffEntry`, `BuffCharacter`, `BuffDataResponse`.
 
 **Removed:** `EchoUpdate` (endpoint xóa — không có update workflow).
 

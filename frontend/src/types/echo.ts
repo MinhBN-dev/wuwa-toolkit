@@ -224,6 +224,64 @@ export interface CharacterEr {
   er_imp_label: 'Min' | 'Norm' | 'Vital' | 'Max'
 }
 
+// ── Team buffs (static lookup table, GET /buffs) ─────────────────────────────
+
+export type BuffTarget = 'team' | 'next' | 'enemy' | 'self'
+export type BuffConfidence = 'high' | 'medium' | 'low'
+
+export interface BuffCategory {
+  key: string
+  label: string
+  group: string
+  unit: string
+}
+
+export interface BuffEntry {
+  cat: string
+  value: number | null
+  text: string | null
+  applies_to: string
+  target: BuffTarget
+  /** 0 = base kit, 1-6 = granted by that Resonance Chain node */
+  seq: number
+  /** true = supersedes the same-cat base entry instead of stacking on it */
+  replaces: boolean
+  source: string
+  duration: number | null
+  condition: string
+  confidence: BuffConfidence
+}
+
+export interface BuffWeapon {
+  name: string
+  rarity: number
+  type: string
+  /** Stat nền của vũ khí — chỉ hiển thị tham khảo, KHÔNG cộng vào bảng */
+  base_atk: number | null
+  main_stat: { stat: string; value: number } | null
+  sources: string[]
+  /** Chỉ phần cộng thêm mô tả trong weapon skill */
+  buffs: BuffEntry[]
+}
+
+export interface BuffCharacter {
+  name: string
+  element: string | null
+  role: string | null
+  patch_verified: string
+  sources: string[]
+  notes: string
+  buffs: BuffEntry[]
+  /** Vũ khí trấn ở R1; null = nhân vật không có vũ khí trấn */
+  weapon: BuffWeapon | null
+}
+
+export interface BuffDataResponse {
+  categories: BuffCategory[]
+  group_order: string[]
+  characters: BuffCharacter[]
+}
+
 export interface GameData {
   echo_sets: string[]
   echo_elements: string[]

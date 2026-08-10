@@ -27,16 +27,16 @@ The detailed docs are intentionally **the** source of truth — don't duplicate 
 ### Local dev (no Docker)
 
 ```bash
-# Backend — port 8000, hot-reload (override --port nếu chạy đồng thời BE khác)
+# Backend — port 8001 (khớp proxy trong vite.config.ts), hot-reload
 cd backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 # Frontend — port 5174
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 cd frontend && npm run dev
 ```
 
-URLs: frontend `http://localhost:5174`, backend `http://localhost:8000/api/v1`, Swagger `http://localhost:8000/docs`.
+URLs: frontend `http://localhost:5174`, backend `http://localhost:8001/api/v1`, Swagger `http://localhost:8001/docs`. Đổi port BE thì phải sửa cả `frontend/vite.config.ts` (proxy `/api` + `/uploads`), nếu không FE nhận 500.
 
 ### Docker (production)
 
@@ -90,7 +90,7 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 
 - **EVC banner fetched once per session** — `staleTime: Infinity`. Acknowledge writes both `evc_status.json` (server volume) and `localStorage` (client).
 
-- **Design system** — WuWa-inspired tech-arcane theme. Rajdhani for display/UI/numbers (`font-display`, `.readout`), Inter for body. Reusable classes in `index.css`: `.panel-tech` (glass + clip-path corner cuts), `.section-label`, `.btn-primary` / `.btn-secondary` (slant clip-path + glow), `.dropzone-frame`. Don't introduce per-component custom panel styles — extend the design system in `index.css` instead. Full reference: `.agent/FRONTEND.md`.
+- **Design system** — WuWa-inspired tech-arcane theme. Rajdhani for display/UI/numbers (`font-display`, `.readout`), Inter for body. Reusable classes in `index.css`: `.panel-tech` (glass + clip-path corner cuts), `.section-label`, `.btn-primary` / `.btn-secondary` (slant clip-path + glow), `.dropzone-frame`. Don't introduce per-component custom panel styles — extend the design system in `index.css` instead. **Rajdhani (`font-display`) không có glyph tiếng Việt** — nhãn tiếng Việt phải dùng `font-vn` (Chakra Petch), nếu không chữ có dấu sẽ lệch font. Full reference: `.agent/FRONTEND.md`.
 
 - **No migrations framework** — schema changes = manual `ALTER TABLE` in psql, update SQLAlchemy model, rebuild backend container.
 
@@ -103,5 +103,7 @@ These are non-obvious rules; the WHY is in the linked `.agent/` docs.
 - **Convene tracker is Oversea-only** — `convene_service.py` hits `gmserver-api.aki-game2.net`. Append-only via `(player_id, card_pool_type, pull_id)` UNIQUE + `ON CONFLICT DO NOTHING`. The export URL token (`record_id`) expires after a short time — not stored, user pastes a fresh URL each sync. `cardPoolId` (gacha_id) from URL must be reused for ALL cardPoolType values when calling the gacha API (passing `""` returns only a fragment of the data). The API doesn't include a unique id per pull, so `pull_id` is synthesized by `synth_pull_id` as a **stable timestamp-anchored id** `"{YYYYMMDDHHMMSS}-{NN}"` (NN = order within that same second, e.g. the 10 items of a 10-pull). **Do NOT use a positional sequence number** — the gacha API returns a *sliding window* (old pulls age out), so positional indices shift and new pulls collide with old ones → `ON CONFLICT` silently drops them ("up to date, no new pulls" after rolling). Timestamp-anchored ids are window-independent. Migrating old positional ids: order by old `pull_id` asc, group by `time`, re-number within each second.
 
 - **50/50 win rate excludes guarantees** — Pool 1 win rate = real_wins / (real_wins + real_losses); a 5★ that came AFTER a standard-pool loss is `guaranteed` and skipped from the calculation. Standard 5★ resonators (used to detect losses): Calcharo, Encore, Jianxin, Lingyang, Verina. Astrites per pull: 160.
+
+- **Team buff data is a lookup dataset, not scoring input** — `data/buff_data.py` (trang `/buffs`) tổng hợp tay từ skill text đã release, mỗi entry có `patch_verified` + `sources` + `confidence`; sửa nó **không** cần `recalculate-all` vì scoring không đọc nó. Hai trục tách biệt theo cách user đọc build **S0R1**: **S = Sequence** (cung mệnh, field `seq`) — bảng LUÔN ở S0, chỉ lấy `seq: 0`; `seq: 1-6` giữ lại làm tham khảo và chỉ hiện ở panel chi tiết. **R = Rank tinh luyện của vũ khí trấn** (`WEAPON_DATA`) — tick "Trấn" cộng **chỉ phần passive mô tả trong weapon skill** ở R1, gồm cả stat cho riêng người cầm (`target: "self"`, hiện mờ + ◆, không cộng chung với buff toàn đội cùng loại). **Base ATK + chỉ số chính của vũ khí KHÔNG tính** — nằm ở `base_atk`/`main_stat` chỉ để hiển thị tham khảo. 7 nhân vật không có vũ khí trấn (5 char 4★ + Verina + Rover Spectro) → khoá tick. Echo main-stat và Sonata set vẫn ngoài phạm vi. Buff chỉ cộng dồn trong cùng `applies_to` — không gộp chéo phạm vi, và không gộp Amplification / Deepen / DMG Bonus. Chi tiết: `.agent/BACKEND.md → Team buff data`.
 
 - **All UI times in UTC+7** — `utils/time.ts → formatGameTime` for WuWa pull times (parses naive ISO as UTC+8 game-server tz, displays in `Asia/Ho_Chi_Minh`); `formatLocalTime` for server-stored UTC timestamps. Display format: `YYYY-MM-DD HH:MM:SS`.

@@ -253,3 +253,64 @@ class ConvenePlayerSummary(BaseModel):
     player_id: str
     total_pulls: int
     last_pull_time: datetime | None
+
+
+# ── Team buffs (static lookup data — see app/data/buff_data.py) ────────────────
+
+
+class BuffCategory(BaseModel):
+    key: str
+    label: str
+    group: str
+    unit: str
+
+
+class BuffEntry(BaseModel):
+    cat: str
+    value: float | None = None
+    text: str | None = None          # shown when `value` is None
+    applies_to: str = "All-Type"
+    target: str = "team"             # team | next | enemy | self
+    seq: int = 0                     # 0 = base kit, 1-6 = Resonance Chain node
+    replaces: bool = False           # supersedes same-cat base entry instead of stacking
+    source: str = ""
+    duration: float | None = None    # seconds
+    condition: str = ""
+    confidence: str = "medium"       # high | medium | low
+
+
+class BuffWeaponStat(BaseModel):
+    stat: str
+    value: float
+
+
+class BuffWeapon(BaseModel):
+    """Vũ khí trấn (signature) ở R1 — bật/tắt bằng tick "Trấn" trên từng cột.
+
+    `buffs` CHỈ gồm phần cộng thêm mô tả trong weapon skill. `base_atk` + `main_stat`
+    là stat nền của vũ khí, giữ lại để hiển thị tham khảo chứ không tính vào bảng.
+    """
+    name: str
+    rarity: int = 5
+    type: str = ""
+    base_atk: float | None = None
+    main_stat: BuffWeaponStat | None = None
+    sources: list[str] = []
+    buffs: list[BuffEntry]
+
+
+class BuffCharacter(BaseModel):
+    name: str
+    element: str | None = None
+    role: str | None = None
+    patch_verified: str
+    sources: list[str] = []
+    notes: str = ""
+    buffs: list[BuffEntry]
+    weapon: BuffWeapon | None = None   # None = không có vũ khí trấn → UI khoá tick
+
+
+class BuffDataResponse(BaseModel):
+    categories: list[BuffCategory]
+    group_order: list[str]
+    characters: list[BuffCharacter]

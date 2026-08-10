@@ -7,8 +7,8 @@
 ### Local dev (native, no Docker app)
 ```
 http://localhost:5174  ← Frontend (Vite dev server)
-http://localhost:8000  ← Backend (FastAPI + uvicorn --reload)
-http://localhost:8000/docs  ← Swagger UI
+http://localhost:8001  ← Backend (FastAPI + uvicorn --reload) — port này khớp proxy trong vite.config.ts
+http://localhost:8001/docs  ← Swagger UI
 127.0.0.1:5432         ← shared-postgres (bind localhost only)
 ```
 
@@ -37,8 +37,8 @@ docker ps | grep shared-postgres
 
 # 2. Backend
 cd /home/ubuntu-dev/Projects/Wuwa_Toolkit/backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-# Cần đồng thời chạy BE khác trên host? Override --port
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+# Đổi port? Sửa luôn proxy trong frontend/vite.config.ts, nếu không FE nhận 500
 
 # 3. Frontend
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -214,5 +214,5 @@ Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiế
 - LAN client: thêm `<VM-IP> wuwa-toolkit.local` vào hosts file (modem chặn mDNS).
 
 ### Frontend local không gọi được API
-- `vite.config.ts` proxy `/api` → `http://localhost:8000` (port BE).
-- Backend đang chạy port 8000 (check `lsof -i :8000`).
+- `vite.config.ts` proxy `/api` + `/uploads` → `http://localhost:8001` (port BE local dev).
+- Backend đang chạy port 8001 (check `ss -ltnp | grep 8001`). Chạy nhầm 8000 → mọi call qua Vite trả 500.
