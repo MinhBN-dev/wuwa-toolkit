@@ -7,6 +7,8 @@ Upstream 24.06/28.06.2026 only added a non-Default Hiyuki team option
 ("Lucilla + Chisa" 107 ER) — Hiyuki Default stays 120.0, no port needed.
 16.07.2026: ported "Xuanling Yangyang" (upstream key) as "Yangyang: Xuanling"
 — Havoc DPS Sword, Heavy%-focused; req_er = Default 120.0, imp 0.6, rc 125.0.
+01.08.2026: ported "Suisui" — Glacio Healer Rectifier, pure ER-support
+(rv all-zero, req_er Default 260.0, imp 1.0, rc 175.0, anal False → score N/A).
 """
 
 # Sub-stat names (order matches weight arrays below)
@@ -329,6 +331,11 @@ CHARACTER_DATA: dict[str, dict] = {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
         "er": [120.0, 0.8, 100.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "DPS",
+    },
+    "Suisui": {
+        "rv": _make_rv([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        "er": [260.0, 1.0, 175.0], "anal": False,
+        "element": "Glacio", "weapon": "Rectifier", "role": "Healer",
     },
     "Taoqi (sub DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.5*0.5, 0.0, 0.0, 0.5*0.5]),
