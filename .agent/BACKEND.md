@@ -221,9 +221,24 @@ gh api repos/AstyuteChick/Echo-Value-Calculator/commits/<sha> -H "Accept: applic
 
 Tham khảo nhanh để port: `python3` import upstream `evc_engine.py` rồi so `Character.data` với `CHARACTER_DATA` (rv + req_er + anal). Có thể tự sinh block `CHARACTER_DATA` giữ nguyên expression `0.5*x` của upstream + metadata cũ của ta (xem cách làm trong git history của commit sync này).
 
-**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.)
+**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.) Upstream `main(char, team, tot_er, ssr, "full")` trả **string** `"51.947: [56.5, 47.4, ...]"` → parse ra list để so từng echo, đừng chỉ so trung bình.
 
-**Synced state: EVC 4.1 — reviewed through 28.06.2026.** Upstream `evc_engine.py` sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 thêm `"Lucilla + Chisa": 105`, 28.06 chỉnh → `107`). Port của ta giữ Hiyuki Default `req_er = 120.0` → **không có data nào đổi**; full parity với upstream đã verify lại (mọi character khớp rv/Default-er/imp/rc/anal). `evc_status.json` đã ack `2026-06-28` để clear banner.
+Mapping our-key → upstream không tự suy được (phần còn lại khớp tên + team `"Default"`): `Phoebe (Main DPS)`→`(Phoebe, "Absolution")` · `Phoebe (Sub DPS)`→`(Phoebe, "Confession")` · `The Shorekeeper (No Fallacy)`/`(With Fallacy)`→ team cùng tên · `Yangyang: Xuanling`→`("Xuanling Yangyang", "Default")` · `Qingxiao`→`("Qingxiao", "Deina + Supp")`.
+
+**Synced state: EVC 4.1 — reviewed through 20.08.2026.** `evc_status.json` ack `2026-08-20`. Parity harness verify: 65 key, 0 static mismatch; single-echo max diff 0.005 (rounding 2dp), full-set 0.000.
+
+**20.08.2026 (`037ef36b`)** — chỉ có **1** data change thực sự:
+- **Qingxiao** (mới): Aero / Sword / DPS, `rv` crit-based + Basic 0.125 / Heavy 0.175 / Liberation 0.15, `imp_er` 0.6, `rc` 125, `anal` True. ⚠️ Upstream **không có key `"Default"`** cho nhân vật này (vi phạm chính self-check ở `evc_engine.py` `__main__`: *"Default not found for {char}"*); teams là `{"Deina + Supp": 110, "Lynae + Supp": 120, "Ciaccona + ANY character": 105}` (`"Deina"` gần như chắc là typo của `"Denia"`). Bản single-`req_er` của ta **chọn 110.0** (user chốt) → parity harness map `Qingxiao → ("Qingxiao", "Deina + Supp")`. Nếu upstream thêm `"Default"` sau này thì phải review lại.
+- **Denia**: chỉ *xoá* team `"Luuk Herssen + Mornye": 115.0`; Default vẫn 115.0 → **không port**.
+- **Ciaccona**: chỉ *thêm* `"Low-Reqs: " 115` / `"High-Reqs: " 135`; Default vẫn 125.0 → **không port**.
+
+Vì không có rv/công thức nào đổi → **không cần `POST /score/recalculate-all`**.
+
+**Asset checklist mỗi lần thêm nhân vật mới** (cả hai đều là static file, baked vào frontend image → phải `docker compose build frontend`, restart không đủ):
+1. Portrait `frontend/public/characters/{slug}.webp` — slug theo `utils/character.ts → getCharacterSlug`. Lấy `static/images/Resonator_{Name}.webp` upstream rồi **resize về 160×160** (upstream ship 256×256, các icon còn lại đều 160).
+2. Icon vũ khí trấn `frontend/public/weapons/{slug}.webp` — slug theo `getWeaponSlug`. Không liên quan scoring; nó phục vụ **Convene banner history** (5★ weapon pull), thiếu file thì trang Convene bật missing-weapon-icon banner. `WEAPON_DATA` trong `buff_data.py` là chuyện **khác** — chỉ chứa vũ khí của buffer trên trang `/buffs`, DPS thuần như Qingxiao không có entry ở đó.
+
+Lần trước — **28.06.2026**: upstream sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 `"Lucilla + Chisa": 105`, 28.06 → `107`); Hiyuki Default giữ `120.0` → không có data nào đổi.
 
 Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv damage-type weights; (2) **Aemeath tách 2 build** `(Rupture)`/`(Fusion Burst)`; (3) **Yuanwu `anal` False→True** (giờ scorable); (4) thêm Lucy / Rebecca / Lucilla(×2); (5) rename theo upstream: Brant, `Aalto/Iuno/Jianxin` suffix, Rover (`Aero Rover`→`Rover (Aero)`...), Mornye swap (our pure-support→`Mornye (Pure Support)`, our crit/def→`Mornye`).
 
