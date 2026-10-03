@@ -238,7 +238,7 @@ Mapping our-key → upstream không tự suy được (phần còn lại khớp 
 
 **Asset checklist mỗi lần thêm nhân vật mới** (cả hai đều là static file, baked vào frontend image → phải `docker compose build frontend`, restart không đủ):
 1. Portrait `frontend/public/characters/{slug}.webp` — slug theo `utils/character.ts → getCharacterSlug`. Lấy `static/images/Resonator_{Name}.webp` upstream rồi **resize về 160×160** (upstream ship 256×256, các icon còn lại đều 160).
-2. Icon vũ khí trấn `frontend/public/weapons/{slug}.webp` — slug theo `getWeaponSlug`. Không liên quan scoring; nó phục vụ **Convene banner history** (5★ weapon pull), thiếu file thì trang Convene bật missing-weapon-icon banner. `WEAPON_DATA` trong `buff_data.py` là chuyện **khác** — chỉ chứa vũ khí của buffer trên trang `/buffs`, DPS thuần như Qingxiao không có entry ở đó. **Đang thiếu**: `jingran.webp`, `hsin.webp` + icon vũ khí trấn của hai nhân vật này (user tự thêm sau) → card của họ hiện fallback cho tới khi có file.
+2. Icon vũ khí trấn `frontend/public/weapons/{slug}.webp` — slug theo `getWeaponSlug`. Không liên quan scoring; nó phục vụ **Convene banner history** (5★ weapon pull), thiếu file thì trang Convene bật missing-weapon-icon banner. `WEAPON_DATA` trong `buff_data.py` là chuyện **khác** — chỉ chứa vũ khí của buffer trên trang `/buffs`, DPS thuần như Qingxiao không có entry ở đó. **Đang thiếu**: `jingran.webp` + icon vũ khí trấn của Jingran (user tự thêm sau) → card Jingran hiện fallback cho tới khi có file. Hsin đã đủ (`hsin.webp` 160×160 + `blooming-jadehaven.webp`).
 
 Lần trước — **28.06.2026**: upstream sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 `"Lucilla + Chisa": 105`, 28.06 → `107`); Hiyuki Default giữ `120.0` → không có data nào đổi.
 
