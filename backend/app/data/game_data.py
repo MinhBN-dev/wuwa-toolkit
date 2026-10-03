@@ -2,7 +2,7 @@
 Wuthering Waves echo scoring data.
 Source: https://github.com/AstyuteChick/Echo-Value-Calculator (evc_engine.py)
 Ported 1:1 — do NOT manually edit weights; sync from upstream repo.
-Synced to upstream EVC 4.1 (reviewed through 17.09.2026; changelog 10.09.2026).
+Synced to upstream EVC 4.1 (reviewed through 30.09.2026).
 Upstream 24.06/28.06.2026 only added a non-Default Hiyuki team option
 ("Lucilla + Chisa" 107 ER) — Hiyuki Default stays 120.0, no port needed.
 16.07.2026: ported "Xuanling Yangyang" (upstream key) as "Yangyang: Xuanling"
@@ -18,6 +18,8 @@ only in rv — without the weapon, HP% jumps 0.55 → 0.92 (she scales off HP an
 hits with Heavy). Both share req_er Default 115.0, imp 1.0, rc 125.0.
 17.09.2026: Qingxiao finally got a "Default" team upstream (115.0) — her
 req_er moved 110.0 (old "Deina + Supp" pick) → 115.0 per the Default rule.
+30.09.2026: ported "Hsin" — Electro DPS Rectifier, crit + Skill 0.425 /
+Basic 0.05; req_er = Default 115.0, imp 0.7, rc 125.0, anal True.
 """
 
 # Sub-stat names (order matches weight arrays below)
@@ -205,6 +207,11 @@ CHARACTER_DATA: dict[str, dict] = {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.5*0.85]),
         "er": [120.0, 0.6, 125.0], "anal": True,
         "element": "Glacio", "weapon": "Sword", "role": "DPS",
+    },
+    "Hsin": {
+        "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.1, 0.0, 0.5*0.85, 0.0]),
+        "er": [115.0, 0.7, 125.0], "anal": True,
+        "element": "Electro", "weapon": "Rectifier", "role": "DPS",
     },
     "Iuno (Main-DPS)": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.85]),
