@@ -2,18 +2,22 @@
 Wuthering Waves echo scoring data.
 Source: https://github.com/AstyuteChick/Echo-Value-Calculator (evc_engine.py)
 Ported 1:1 — do NOT manually edit weights; sync from upstream repo.
-Synced to upstream EVC 4.1 (reviewed through 20.08.2026).
+Synced to upstream EVC 4.1 (reviewed through 17.09.2026; changelog 10.09.2026).
 Upstream 24.06/28.06.2026 only added a non-Default Hiyuki team option
 ("Lucilla + Chisa" 107 ER) — Hiyuki Default stays 120.0, no port needed.
 16.07.2026: ported "Xuanling Yangyang" (upstream key) as "Yangyang: Xuanling"
 — Havoc DPS Sword, Heavy%-focused; req_er = Default 120.0, imp 0.6, rc 125.0.
 01.08.2026: ported "Suisui" — Glacio Healer Rectifier, pure ER-support
 (rv all-zero, req_er Default 260.0, imp 1.0, rc 175.0, anal False → score N/A).
-20.08.2026: ported "Qingxiao" — Aero DPS Sword. Upstream ships NO "Default"
-team for her (violates their own check at evc_engine.py __main__), teams are
-{"Deina + Supp": 110, "Lynae + Supp": 120, "Ciaccona + ANY character": 105};
-user chose 110.0. Same commit only *removed* a Denia team option and *added*
-two Ciaccona ones — both Defaults unchanged, so no port needed for those.
+20.08.2026: ported "Qingxiao" — Aero DPS Sword. Same commit only *removed* a
+Denia team option and *added* two Ciaccona ones — both Defaults unchanged, so
+no port needed for those.
+10.09.2026: ported "Jingran" — Fusion DPS Broadblade. Upstream splits her by
+*signature weapon* (not role): "(Signature Wp.)" / "(No Signature Wp.)" differ
+only in rv — without the weapon, HP% jumps 0.55 → 0.92 (she scales off HP and
+hits with Heavy). Both share req_er Default 115.0, imp 1.0, rc 125.0.
+17.09.2026: Qingxiao finally got a "Default" team upstream (115.0) — her
+req_er moved 110.0 (old "Deina + Supp" pick) → 115.0 per the Default rule.
 """
 
 # Sub-stat names (order matches weight arrays below)
@@ -217,6 +221,16 @@ CHARACTER_DATA: dict[str, dict] = {
         "er": [135.0, 0.9, 150.0], "anal": True,
         "element": "Aero", "weapon": "Gauntlets", "role": "SubDPS",
     },
+    "Jingran (Signature Wp.)": {
+        "rv": _make_rv([1.0, 1.0, 0.39, 0.27, 0.55, 0.15, 0.0, 0.0, 0.0, 0.41, 0.0, 0.0]),
+        "er": [115.0, 1.0, 125.0], "anal": True,
+        "element": "Fusion", "weapon": "Broadblade", "role": "DPS",
+    },
+    "Jingran (No Signature Wp.)": {
+        "rv": _make_rv([1.0, 1.0, 0.46, 0.25, 0.92, 0.28, 0.0, 0.0, 0.0, 0.44, 0.0, 0.0]),
+        "er": [115.0, 1.0, 125.0], "anal": True,
+        "element": "Fusion", "weapon": "Broadblade", "role": "DPS",
+    },
     "Jinhsi": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5*0.8, 0.5*0.15]),
         "er": [115.0, 0.3, 150.0], "anal": True,
@@ -299,7 +313,7 @@ CHARACTER_DATA: dict[str, dict] = {
     },
     "Qingxiao": {
         "rv": _make_rv([1.0, 1.0, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5*0.25, 0.5*0.35, 0.0, 0.5*0.3]),
-        "er": [110.0, 0.6, 125.0], "anal": True,
+        "er": [115.0, 0.6, 125.0], "anal": True,
         "element": "Aero", "weapon": "Sword", "role": "DPS",
     },
     "Qiuyuan": {
