@@ -38,6 +38,9 @@ const config: Config = {
       },
       fontFamily: {
         display: ['Rajdhani', 'system-ui', 'sans-serif'],
+        // Rajdhani has no Vietnamese glyphs — mixed-glyph fallback looks broken.
+        // Use font-vn for any Vietnamese UI label that wants the tech/display look.
+        vn: ['Chakra Petch', 'Inter', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
       backgroundImage: {

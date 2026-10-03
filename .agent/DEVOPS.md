@@ -7,8 +7,8 @@
 ### Local dev (native, no Docker app)
 ```
 http://localhost:5174  ← Frontend (Vite dev server)
-http://localhost:8000  ← Backend (FastAPI + uvicorn --reload)
-http://localhost:8000/docs  ← Swagger UI
+http://localhost:8001  ← Backend (FastAPI + uvicorn --reload) — port này khớp proxy trong vite.config.ts
+http://localhost:8001/docs  ← Swagger UI
 127.0.0.1:5432         ← shared-postgres (bind localhost only)
 ```
 
@@ -20,7 +20,7 @@ http://wuwa-toolkit.local (host :80)
                               ├── /api/     → wuwa-toolkit-backend:8000
                               └── /uploads/ → wuwa-toolkit-backend:8000
 ```
-Hostname `wuwa-toolkit.local` ưu tiên `/etc/hosts` (VM + LAN client). Modem chặn mDNS multicast → mỗi LAN client cần hosts entry. Topology mạng VM chi tiết ở global `~/.claude/CLAUDE.md`.
+Hostname `wuwa-toolkit.local` ưu tiên `/etc/hosts` (VM + LAN client). Modem chặn mDNS multicast → mỗi LAN client cần hosts entry. Topology mạng VM chi tiết ở `~/.claude/docs/NETWORK.md`.
 
 ## Local Development
 
@@ -37,8 +37,8 @@ docker ps | grep shared-postgres
 
 # 2. Backend
 cd /home/ubuntu-dev/Projects/Wuwa_Toolkit/backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-# Cần đồng thời chạy BE khác trên host? Override --port
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+# Đổi port? Sửa luôn proxy trong frontend/vite.config.ts, nếu không FE nhận 500
 
 # 3. Frontend
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -111,7 +111,12 @@ Vhost `wuwa-toolkit.local` được nginx-proxy ở `~/Projects/infra/` route �
 
 ## Domain nội bộ (`wuwa-toolkit.local`)
 
-`/etc/hosts` VM đã có `127.0.0.1 wuwa-toolkit.local`. LAN client cần hosts entry (modem chặn mDNS multicast). Chi tiết troubleshoot mạng VM (ens33 NAT, ens37 bridged, Viettel modem, mDNS workaround) ở global `~/.claude/CLAUDE.md` § Deployment Topology.
+`/etc/hosts` VM đã có `127.0.0.1 wuwa-toolkit.local`.
+
+- **Laptop (máy host VM)**: resolve qua mDNS, **không** dùng hosts file. `local-aliases.service` trên VM publish `wuwa-toolkit.local` → IP ens33 (vmnet8) hiện hành và tự publish lại khi IP đổi, nên chạy được ở mọi WiFi. Nguồn ở `~/Projects/infra/mdns/`.
+- **PC LAN**: vẫn cần hosts entry trỏ IP ens37 (modem chặn mDNS multicast).
+
+Chi tiết troubleshoot mạng VM (ens33 NAT, ens37 bridged, Viettel modem, checklist) ở `~/.claude/docs/NETWORK.md`.
 
 ---
 
@@ -193,7 +198,7 @@ ALLOWED_ORIGINS=http://localhost:5174
 ## GitHub
 
 Repo: <https://github.com/MinhBN-dev/wuwa-toolkit> (private, renamed from `echoes-optimizer` ngày 2026-05-08 — old URL redirects).
-Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiết push policy + tạo repo mới ở global `~/.claude/CLAUDE.md`.
+Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiết push policy + tạo repo mới ở `~/.claude/docs/GITHUB.md`.
 
 ---
 
@@ -211,8 +216,13 @@ Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiế
 
 ### `wuwa-toolkit.local` không resolve
 - VM: `getent hosts wuwa-toolkit.local` — phải ra `127.0.0.1`.
-- LAN client: thêm `<VM-IP> wuwa-toolkit.local` vào hosts file (modem chặn mDNS).
+- Laptop: `systemctl is-active local-aliases.service` trên VM phải `active`; kiểm tra bằng `python3 ~/Projects/infra/mdns/mdns_query.py wuwa-toolkit.local` (đừng dùng `getent` — `/etc/hosts` che mất kết quả mDNS). Laptop còn dòng `.local` trong hosts file thì xoá, nó thắng mDNS.
+- PC LAN: thêm `<IP-ens37> wuwa-toolkit.local` vào hosts file (modem chặn mDNS).
+
+### Backend container chết ngay khi start: `ImportError: ... requires that the Python 'greenlet' library is installed`
+
+`requirements.txt` để `sqlalchemy>=2.0.0` **không có extra** → rebuild sau khi SQLAlchemy 2.1 ra sẽ cài bản mới mà bản này **bỏ `greenlet` khỏi dependency bắt buộc** (giờ nằm trong extra `[asyncio]`), nên `sqlalchemy.ext.asyncio` import fail và uvicorn chết trước khi mở port — biểu hiện ngoài là `502` từ nginx-proxy. Fix: `sqlalchemy[asyncio]>=2.0.0` rồi `docker compose build wuwa-toolkit-backend`. Venv local dev không bị vì nó còn `greenlet` từ lần cài cũ ⇒ **lỗi này chỉ hiện ra khi build image**, dev chạy bình thường.
 
 ### Frontend local không gọi được API
-- `vite.config.ts` proxy `/api` → `http://localhost:8000` (port BE).
-- Backend đang chạy port 8000 (check `lsof -i :8000`).
+- `vite.config.ts` proxy `/api` + `/uploads` → `http://localhost:8001` (port BE local dev).
+- Backend đang chạy port 8001 (check `ss -ltnp | grep 8001`). Chạy nhầm 8000 → mọi call qua Vite trả 500.

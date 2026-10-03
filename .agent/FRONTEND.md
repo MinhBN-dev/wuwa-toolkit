@@ -5,7 +5,7 @@
 ```
 frontend/
 ├── index.html
-├── vite.config.ts       Proxy /api + /uploads → localhost:8000
+├── vite.config.ts       Proxy /api + /uploads → localhost:8001 (port BE local dev)
 ├── tailwind.config.ts   Custom colors: ww-*, tier-*, element-*
 ├── nginx.conf           Production nginx config (served inside Docker container)
 ├── Dockerfile           Multi-stage: node build → nginx:alpine serve
@@ -36,6 +36,7 @@ frontend/
         ├── Home.tsx         2-col layout — Resonator/upload | StatsEditor | Score readout. Element-colored char chip.
         ├── Set.tsx          Hero + control bar + aggregate score ABOVE 5 slots; dropzone gold glow on paste-target
         ├── Saved.tsx        Hero + total badge + tier-ladder filter chips with active glow; gallery grid of EchoCards
+        ├── Buffs.tsx        Team-buff matrix — row = loại buff (gom nhóm Offense/Crit/Amplify/Shred/Sustain/Utility), column = buffer. Chip chọn cột + tick "Trấn" ngay dưới avatar trong `<th>` — nhị phân `S0R0` ⇄ `S0R1`: bật = cộng toàn bộ `weapon.buffs` (vũ khí trấn R1). Nhân vật `weapon === null` → checkbox `disabled`, hiện `S0`. Ô gộp theo khoá `${target}|${applies_to}` nên stat "self" của vũ khí (mờ + ◆) không cộng chung với buff toàn đội. Panel chi tiết chia 3 khối: Kit (S0) / Vũ khí trấn R1 / Cung mệnh S1-S6 (tham khảo, không tính). Cột đầu `sticky left-0`, wrapper `overflow-x-auto`. Cell cộng dồn **theo từng `applies_to`** rồi in giá trị + chip (tooltip `title` = source/target/duration/condition). Prefs (cột ẩn, mức trấn, "ẩn dòng trống") lưu `localStorage['buff_table_prefs']`. Click tên nhân vật → panel chi tiết kit + link nguồn.
         ├── Characters.tsx   Hero + 4 stat tiles + portrait grid; mỗi card có chip điểm các echo-set gắn nhân vật (hover → popover điểm từng echo, render qua portal tránh clip-path)
         └── Convene.tsx      Auto-extract section (PS one-liner copies URL via Client.log) + manual paste → sync 4 visible pools; pool tabs (full-width) with 2-panel summary (Pool counts | 5★ Luck Rating with progress bars: avg pity, pull ratio, 50/50 win). The `LuckStat` 50/50 slot ALWAYS renders (real bar only for pool 1; an INVISIBLE `placeholder` spacer — `visibility:hidden`, `aria-hidden` — for pools 2/3/4) so every pool card is equal-height across tabs without a distracting dimmed N/A row. Pity meter, horizontal 5★ portrait row (amber pity ≤50, rose >50), missing-weapon-icon banner, and per-pool paginated history (Pull No., portrait + colored name, Pity, Date UTC+7). Helper script lives at `frontend/public/get-convene-url.ps1`.
 ```
@@ -45,6 +46,7 @@ frontend/
 - `/set`         → Full Set optimizer — nav label **"Full Score"**
 - `/saved`       → Saved Echoes + Saved Sets
 - `/characters`  → Character roster with build status tracking
+- `/buffs`       → Team Buffs matrix — nav label **"Buffs"** (19 buffer × 13 loại buff; tick Trấn = vũ khí trấn R1)
 - `/convene`     → Convene (gacha) history tracker — import via in-game export URL
 
 ## Types (echo.ts)
@@ -69,6 +71,11 @@ frontend/
 | `ConveneStatsResponse` | player_id, last_synced_at, pools[] |
 | `ConvenePullResponse` | pull_id, name, item_type, quality_level, time, pity?, pull_no? (server-computed "Pull No.") |
 | `ConvenePlayerSummary` | player_id, total_pulls, last_pull_time |
+| `BuffCategory` | key, label, group, unit — 1 dòng của bảng buff |
+| `BuffEntry` | cat, value?, text?, applies_to, target (`team`/`next`/`enemy`/`self`), seq (0 = kit gốc, 1-6 = node trấn), replaces, source, duration?, condition, confidence |
+| `BuffWeapon` | name, rarity, type, base_atk, sources[], buffs[] — vũ khí trấn ở R1 |
+| `BuffCharacter` | name, element, role, patch_verified, sources[], notes, buffs[], weapon (null = không có vũ khí trấn) |
+| `BuffDataResponse` | categories, group_order, characters |
 
 ## API Calls (api.ts)
 
@@ -96,6 +103,7 @@ getConvenePlayers()          GET /convene/players          — list synced UIDs
 getConveneStats(player_id)   GET /convene/stats            — pity + 5★ per pool
 getConveneHistory(params)    GET /convene/history          — paginated, filter pool/rarity
 deleteConvenePlayer(uid)     DELETE /convene/players/{uid} — wipe a UID's history
+getBuffs()                   GET /buffs                     — bảng buff tĩnh (query `['buffs']`, staleTime Infinity)
 ```
 **Đã xóa:** `createEcho`, `updateEcho`, `getEcho` — không có component nào gọi
 
@@ -123,6 +131,7 @@ Each page uses the same shared classes (panel-tech / section-label / readout / b
 | `/set` Full Score | Layers | Aggregate score readout pinned ABOVE the 5 slots (at-a-glance); paste-target slot has gold halo; per-slot ✎ opens manual-entry dialog |
 | `/saved` Library | Library | Total-count cyan badge; tier-ladder filter chips light up active; EchoCard hover halo follows echo's element color |
 | `/characters` Resonators | Users | 4 stat tiles (Total/Built/Building/Pending); portrait có conic-gradient element ring + status-colored border; chip điểm echo-set (gom theo `getBaseName(set.character_name)`, hover → popover điểm từng echo) |
+| `/buffs` Team Buffs | Sparkles | Ma trận rộng (`max-w-[1600px]`) — cột đầu sticky, header cột là portrait element-ring + tick Trấn; dải nhóm `.section-label` chia Offense/Crit/Amplify/…; giá trị `.readout` màu gold, chip xám kèm badge `S{n}` gold, `→` cyan (buff cho nhân vật vào sân) / `▼` đỏ (debuff địch) |
 
 All four pages mount with `animate-fade-up`. Score reveals use `animate-count-in`. Empty states use `◆` glyph in a cyan ring with `animate-pulse-glow`.
 
@@ -190,4 +199,6 @@ Design system: **WuWa-inspired tech-arcane** — dark navy base, glassmorphism p
 - `.above-stars` — z-index helper to sit above body::before starfield overlay
 - Animations: `animate-fade-up`, `animate-count-in`, `animate-pulse-glow`, `animate-shimmer`, `animate-spin-slow`
 
-Fonts loaded via Google Fonts in `index.html`: Rajdhani (400/500/600/700) + Inter (400/500/600).
+Fonts loaded via Google Fonts in `index.html`: Rajdhani (400/500/600/700) + Chakra Petch (500/600/700) + Inter (400/500/600).
+
+**`font-vn` (Chakra Petch)** — Rajdhani KHÔNG có glyph tiếng Việt: chữ có dấu rơi sang font fallback nên trong cùng một từ glyph bị lệch kiểu ("CHỌN TẤT CẢ" hỏng rõ nhất). Nhãn UI tiếng Việt muốn giữ look display phải dùng `font-vn` thay cho `font-display`; Chakra Petch cùng chất tech/vuông nên nhìn đồng bộ với Rajdhani. Text thân bài tiếng Việt dùng Inter (có sẵn tiếng Việt) là ổn.

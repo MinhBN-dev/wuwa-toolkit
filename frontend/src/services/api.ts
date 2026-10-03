@@ -7,6 +7,7 @@ import type {
   CharacterProfile, CharacterProfileUpsert,
   ConveneImportResponse, ConveneStatsResponse,
   ConvenePlayerSummary, ConveneHistoryResponse,
+  BuffDataResponse,
 } from '../types/echo'
 
 const api = axios.create({
@@ -114,3 +115,7 @@ export const getConveneHistory = (params: {
 
 export const deleteConvenePlayer = (player_id: string) =>
   api.delete(`/convene/players/${encodeURIComponent(player_id)}`)
+
+// Team buffs (static data — safe to cache forever within a session)
+export const getBuffs = () =>
+  api.get<BuffDataResponse>('/buffs').then(r => r.data)

@@ -3,6 +3,7 @@ import HomePage from './pages/Home'
 import SavedPage from './pages/Saved'
 import SetPage from './pages/Set'
 import CharactersPage from './pages/Characters'
+import BuffsPage from './pages/Buffs'
 import ConvenePage from './pages/Convene'
 import EvcBanner from './components/EvcBanner'
 import Logo from './components/Logo'
@@ -60,6 +61,7 @@ export default function App() {
               <NavItem to="/set">Full Score</NavItem>
               <NavItem to="/saved">Library</NavItem>
               <NavItem to="/characters">Resonators</NavItem>
+              <NavItem to="/buffs">Buffs</NavItem>
               <NavItem to="/convene">Convene</NavItem>
             </nav>
           </div>
@@ -74,6 +76,7 @@ export default function App() {
             <Route path="/set" element={<SetPage />} />
             <Route path="/saved" element={<SavedPage />} />
             <Route path="/characters" element={<CharactersPage />} />
+            <Route path="/buffs" element={<BuffsPage />} />
             <Route path="/convene" element={<ConvenePage />} />
           </Routes>
         </main>

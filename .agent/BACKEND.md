@@ -29,13 +29,15 @@ backend/
     │   ├── sets.py      CRUD: /sets (POST=insert, PUT /{id}=overwrite, GET, DELETE)
     │   ├── evc_status.py GET /evc-status, POST /evc-status/acknowledge
     │   ├── character_profiles.py GET/PUT/POST /character-profiles (build status + notes)
-    │   └── convene.py    Convene tracker: /convene/import|players|stats|history
+    │   ├── convene.py    Convene tracker: /convene/import|players|stats|history
+    │   └── buffs.py      GET /buffs — static team-buff matrix (no DB)
     ├── services/
     │   ├── ocr_service.py     OCR pipeline (RapidOCR + EasyOCR local + cloud fallbacks)
     │   ├── scoring_service.py EVC weighted scoring algorithm
     │   └── convene_service.py WuWa gacha API client (URL parse + fetch_all_pools)
     └── data/
-        └── game_data.py  CHARACTER_DATA, SUBSTAT_MEDIANS, CHARACTER_LIST, TIER_THRESHOLDS, ECHO_SETS, ECHO_ELEMENTS, ECHO_COSTS, MAIN_STAT_OPTIONS
+        ├── game_data.py  CHARACTER_DATA, SUBSTAT_MEDIANS, CHARACTER_LIST, TIER_THRESHOLDS, ECHO_SETS, ECHO_ELEMENTS, ECHO_COSTS, MAIN_STAT_OPTIONS
+        └── buff_data.py  BUFF_CATEGORIES, BUFF_GROUP_ORDER, BUFF_DATA, WEAPON_DATA, BUFF_CHARACTER_ORDER (team-buff + vũ khí trấn lookup, không dính scoring)
 ```
 
 ## Models
@@ -98,6 +100,7 @@ backend/
 | GET | /api/v1/convene/history | Paginated pulls (default 4★+5★ via `min_rarity`). Filters: `pool_type`, `rarity`, `min_rarity`, `skip`, `limit`. Returns `{items, total, skip, limit}`. **Per-row pity** and **`pull_no`** (1-based chronological position within the pool, incl. 3★, for the "Pull No." column) both computed by walking the entire pool oldest-first. NB: `pull_no` is server-computed, **not** derived from `pull_id` — `pull_id` is now a timestamp string so `Number(pull_id)` would be `NaN` |
 | GET | /api/v1/convene/stats | Always emits an entry for `VISIBLE_POOLS = (1,2,3,4)` even when 0 pulls. Per-pool: total, total_astrites (×160), 5★/4★ counts, current pity_5/pity_4, avg_pity_5, **pull_ratio** (5★/total), **wins_50_50 / losses_50_50 / win_rate_50_50** (only for pool 1), and 5★ list newest-first with pity-at-pull |
 | DELETE | /api/v1/convene/players/{uid} | Wipe UID's history |
+| GET | /api/v1/buffs | Static team-buff table: `{categories, group_order, characters[]}`. Read-only, no DB. Element/role resolved from `CHARACTER_DATA` by base name (see "Team buff data") |
 
 ## Data Flow
 
@@ -218,9 +221,26 @@ gh api repos/AstyuteChick/Echo-Value-Calculator/commits/<sha> -H "Accept: applic
 
 Tham khảo nhanh để port: `python3` import upstream `evc_engine.py` rồi so `Character.data` với `CHARACTER_DATA` (rv + req_er + anal). Có thể tự sinh block `CHARACTER_DATA` giữ nguyên expression `0.5*x` của upstream + metadata cũ của ta (xem cách làm trong git history của commit sync này).
 
-**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.)
+**Validate bằng parity harness** (bắt buộc cho mọi sync data): import cả `calculate_score`/`calculate_set_score` của ta lẫn `evc_engine.main()`, map our-key → upstream `(name, team)`, random hàng nghìn echo + dải `total_er`, assert max diff < 0.02. (Diff còn lại ~0.005 là do rounding 2dp/3dp — chấp nhận được.) Upstream `main(char, team, tot_er, ssr, "full")` trả **string** `"51.947: [56.5, 47.4, ...]"` → parse ra list để so từng echo, đừng chỉ so trung bình. Hai cái dễ sai khi dựng lại harness: (1) so **`score_percent`** của ta với `es_total` upstream — `score` raw là đại lượng khác (`es_total = av/ep*100`, tức chính `score_percent`); (2) **skip key `anal: False` + rv all-zero** — ta trả N/A cứng (`score 0.0`) cho support, còn upstream vẫn tính số (và rv all-zero như Suisui thì nó `ZeroDivisionError`); static compare vẫn phủ các key đó.
 
-**Synced state: EVC 4.1 — reviewed through 28.06.2026.** Upstream `evc_engine.py` sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 thêm `"Lucilla + Chisa": 105`, 28.06 chỉnh → `107`). Port của ta giữ Hiyuki Default `req_er = 120.0` → **không có data nào đổi**; full parity với upstream đã verify lại (mọi character khớp rv/Default-er/imp/rc/anal). `evc_status.json` đã ack `2026-06-28` để clear banner.
+Mapping our-key → upstream không tự suy được (phần còn lại khớp tên + team `"Default"`): `Phoebe (Main DPS)`→`(Phoebe, "Absolution")` · `Phoebe (Sub DPS)`→`(Phoebe, "Confession")` · `The Shorekeeper (No Fallacy)`/`(With Fallacy)`→ team cùng tên · `Yangyang: Xuanling`→`("Xuanling Yangyang", "Default")`. (`Qingxiao` từng phải map sang team `"Deina + Supp"`; từ 17.09.2026 upstream đã có `"Default"` nên nó về đúng rule chung.)
+
+**Synced state: EVC 4.1 — reviewed through 30.09.2026** (upstream HEAD `09fcdf79`). `evc_status.json` ack `2026-09-30`. Parity harness verify: 68 key, 0 static mismatch; single-echo max diff 0.005 (rounding 2dp), full-set 0.000; `recalculate-all` sau sync: 14 set / 78 echo, **0 updated**.
+
+**30.09.2026** (`153e6fc9` + `09fcdf79`) — **Hsin** (mới): Electro / Rectifier / DPS, `rv` crit-based + Skill 0.425 / Basic 0.05, `er` Default `115.0`, `imp_er` 0.7, `rc` 125, `anal` True. Không split build, không đụng nhân vật cũ. Commit thứ hai (*"forgot to add default"*) mới thêm `"Default": 115.0` — team khác là `"Electro Flare / Main DPS": 120` / `"Unison": 115` → **luôn đọc tới HEAD** trước khi port, nếu dừng ở commit đầu thì lại gặp đúng ca Qingxiao 20.08.
+
+**10.09 + 17.09.2026** (`de8f2742` → `31bbde20`, 4 commit) — 2 data change:
+- **Jingran** (mới): Fusion / Broadblade / DPS, `anal` True, `er` = Default `115.0` / `imp_er` 1.0 / `rc` 125. Upstream **tách build theo vũ khí trấn**, không theo role — `Jingran (Signature Wp.)` vs `Jingran (No Signature Wp.)`, chỉ khác `rv`: không trấn thì **HP% 0.55 → 0.92** + Flat HP 0.15 → 0.28, Heavy 0.41 → 0.44, Atk% 0.39 → 0.46. Đây là nhân vật đầu tiên mà HP% gần ngang crit (char scale HP, đánh Heavy) — nếu score ra HP%-echo cao thì **đúng**, không phải bug. ⚠️ Hai commit `7128b5bc` + `cc22ef38` cùng ngày là bugfix `rv` của riêng build "No Signature Wp." → luôn lấy giá trị ở **HEAD**, đừng port theo commit đầu.
+- **Qingxiao**: upstream cuối cùng cũng thêm `"Default": 115.0` (`31bbde20`) → `req_er` của ta **110.0 → 115.0** (user chốt, theo rule "lấy Default"). Chỉ lệch khi `total_er` vượt target (120/130 → pct 120.04/115.21 cũ vs 120.19/116.28 mới); dưới target thì giống hệt. `recalculate-all` ra 0 updated vì DB chưa có echo/set nào của Qingxiao.
+- Phần còn lại của `31bbde20` chỉ là rename biến `team` → `team_name` trong self-check ở `__main__` → **không port**.
+
+**20.08.2026 (`037ef36b`)**: thêm **Qingxiao** (Aero / Sword / DPS, `rv` crit-based + Basic 0.125 / Heavy 0.175 / Liberation 0.15, `imp_er` 0.6, `rc` 125) — lúc đó upstream **không có** `"Default"` (vi phạm chính self-check của họ), ta chọn `110.0` từ team `"Deina + Supp"`; 17.09 đã sửa như trên. Denia (xoá 1 team) + Ciaccona (thêm 2 team) không đổi Default → không port.
+
+**Asset checklist mỗi lần thêm nhân vật mới** (cả hai đều là static file, baked vào frontend image → phải `docker compose build frontend`, restart không đủ):
+1. Portrait `frontend/public/characters/{slug}.webp` — slug theo `utils/character.ts → getCharacterSlug`. Lấy `static/images/Resonator_{Name}.webp` upstream rồi **resize về 160×160** (upstream ship 256×256, các icon còn lại đều 160).
+2. Icon vũ khí trấn `frontend/public/weapons/{slug}.webp` — slug theo `getWeaponSlug`. Không liên quan scoring; nó phục vụ **Convene banner history** (5★ weapon pull), thiếu file thì trang Convene bật missing-weapon-icon banner. `WEAPON_DATA` trong `buff_data.py` là chuyện **khác** — chỉ chứa vũ khí của buffer trên trang `/buffs`, DPS thuần như Qingxiao không có entry ở đó. **Đang thiếu**: `jingran.webp` + icon vũ khí trấn của Jingran (user tự thêm sau) → card Jingran hiện fallback cho tới khi có file. Hsin đã đủ (`hsin.webp` 160×160 + `blooming-jadehaven.webp`).
+
+Lần trước — **28.06.2026**: upstream sau 13.06 chỉ thêm team option non-Default cho Hiyuki (24.06 `"Lucilla + Chisa": 105`, 28.06 → `107`); Hiyuki Default giữ `120.0` → không có data nào đổi.
 
 Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv damage-type weights; (2) **Aemeath tách 2 build** `(Rupture)`/`(Fusion Burst)`; (3) **Yuanwu `anal` False→True** (giờ scorable); (4) thêm Lucy / Rebecca / Lucilla(×2); (5) rename theo upstream: Brant, `Aalto/Iuno/Jianxin` suffix, Rover (`Aero Rover`→`Rover (Aero)`...), Mornye swap (our pure-support→`Mornye (Pure Support)`, our crit/def→`Mornye`).
 
@@ -230,9 +250,22 @@ Lần sync EVC 4.1 (13.06.2026): (1) recalc `imp_er` toàn cục + refine rv dam
 
 `main.py → seed_characters()` chạy trên mỗi lifespan startup. Idempotent: query `select(Character.name)` → diff với `CHARACTER_LIST` từ game_data → insert những entry mới. Add character vào `CHARACTER_DATA` rồi restart backend là đủ — không cần manual SQL.
 
+## Team buff data (`data/buff_data.py` → `GET /buffs`)
+
+Dataset tra cứu cho trang `/buffs`. **Hoàn toàn tách khỏi scoring** — không service nào đọc nó, nên sửa số ở đây không bao giờ cần `POST /score/recalculate-all`.
+
+- **Nguồn**: tổng hợp tay từ skill text đã release — không dùng số beta/leak. Ưu tiên `wuwa.incin.net/resonators/{id}` (datamine, giữ nguyên văn chuỗi skill) rồi đối chiếu số với Game8 / wuthering.gg / wuwa.build. **Game8 còn dùng thuật ngữ cũ** (ví dụ Outro Verina bị ghi là "DMG Deepen" trong khi in-game là "DMG Amplified") → luôn kiểm tra chéo. Mỗi nhân vật có `patch_verified` + `sources[]`; mỗi entry có `confidence` (`high` / `medium` / `low`). `low` = nguồn không nói rõ team hay self → UI hiện dấu `?`.
+- **`WEAPON_DATA`** (cùng file) = vũ khí trấn ở **R1**, key = tên nhân vật; thiếu key = không có vũ khí trấn → FE khoá tick. `buffs` dùng chung schema, thêm `target: "self"` cho passive tự thân. **Base ATK và chỉ số chính không nằm trong `buffs`** (user chốt: chỉ tính phần cộng thêm trong mô tả) — chúng ở `base_atk` + `main_stat` để panel chi tiết hiển thị tham khảo. Router gắn vào field `weapon` của mỗi nhân vật.
+- **`BUFF_CATEGORIES`** định nghĩa **dòng** của bảng (order = order render), gom nhóm qua `group` + `BUFF_GROUP_ORDER`. **`BUFF_DATA`** key = *base name* (khớp `getBaseName` bên FE) → mỗi nhân vật 1 **cột**.
+- **Hai trục**: `seq` = cung mệnh (bảng luôn S0 → chỉ `seq: 0`; 1-6 chỉ tham khảo ở panel chi tiết) · `WEAPON_DATA` = tinh luyện vũ khí trấn R1 (tick "Trấn").
+- **Entry fields**: `cat`, `value` (None = hiệu ứng chữ, dùng `text`), `applies_to` (phạm vi: "All-Type" / "Havoc" / "Basic Attack"…), `target` (`team` | `next` | `enemy` | `self`), `seq` (0 = kit gốc, 1-6 = node trấn), `replaces` (đè entry cùng `cat` thay vì cộng dồn), `source`, `duration`, `condition`, `confidence`.
+- **Chỉ liệt kê buff chạm tới người khác.** Buff cá nhân của buffer nằm ở field `notes` cấp nhân vật.
+- Router **không** duplicate element/role — `_element_role_index()` map base name → `CHARACTER_DATA`, nên thêm nhân vật mới chỉ cần thêm vào `BUFF_DATA` (nếu đã có trong `CHARACTER_DATA`).
+- FE cộng dồn **theo từng `applies_to`**, không cộng chéo phạm vi (20% Glacio + 25% Resonance Skill là 2 multiplier khác nhau, không phải 45%).
+
 ## Schemas (schemas/echo.py)
 
-Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`.
+Active: `SubStat`, `EchoCreate`, `EchoResponse`, `EchoListResponse`, `CharacterResponse`, `OcrResult`, `ScoreRequest`, `ScoreResponse`, `EchoSetItem`, `SetScoreRequest`, `EchoSetResult`, `SetScoreResponse`, `EchoSetSlot`, `EchoSetSaveRequest`, `EchoSetResponse`, `CharacterProfileUpsert`, `CharacterProfileResponse`, `BulkProfileUpsert`, `BuffCategory`, `BuffEntry`, `BuffCharacter`, `BuffDataResponse`.
 
 **Removed:** `EchoUpdate` (endpoint xóa — không có update workflow).
 

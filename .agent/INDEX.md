@@ -17,6 +17,7 @@
 | Tier UI / colors / `tier.ts` | `.agent/FRONTEND.md` |
 | EvcBanner, Set page state, Saved page filtering | `.agent/FRONTEND.md` |
 | Convene tracker (gacha import, pity, history) | `.agent/BACKEND.md` (router/service) + `.agent/FRONTEND.md` (page) |
+| Team buff data (`buff_data.py`, `GET /buffs`, trang `/buffs`) | `.agent/BACKEND.md` (dataset + endpoint) + `.agent/FRONTEND.md` (bảng) |
 | Docker compose, override, networks, volumes | `.agent/DEVOPS.md` |
 | Local dev commands, env files, psql, reset tables | `.agent/DEVOPS.md` |
 | Production URL (`wuwa-toolkit.local`), Avahi mDNS, LAN client hosts file | `.agent/DEVOPS.md` |
