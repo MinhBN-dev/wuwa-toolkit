@@ -20,7 +20,7 @@ http://wuwa-toolkit.local (host :80)
                               ├── /api/     → wuwa-toolkit-backend:8000
                               └── /uploads/ → wuwa-toolkit-backend:8000
 ```
-Hostname `wuwa-toolkit.local` ưu tiên `/etc/hosts` (VM + LAN client). Modem chặn mDNS multicast → mỗi LAN client cần hosts entry. Topology mạng VM chi tiết ở global `~/.claude/CLAUDE.md`.
+Hostname `wuwa-toolkit.local` ưu tiên `/etc/hosts` (VM + LAN client). Modem chặn mDNS multicast → mỗi LAN client cần hosts entry. Topology mạng VM chi tiết ở `~/.claude/docs/NETWORK.md`.
 
 ## Local Development
 
@@ -111,7 +111,12 @@ Vhost `wuwa-toolkit.local` được nginx-proxy ở `~/Projects/infra/` route �
 
 ## Domain nội bộ (`wuwa-toolkit.local`)
 
-`/etc/hosts` VM đã có `127.0.0.1 wuwa-toolkit.local`. LAN client cần hosts entry (modem chặn mDNS multicast). Chi tiết troubleshoot mạng VM (ens33 NAT, ens37 bridged, Viettel modem, mDNS workaround) ở global `~/.claude/CLAUDE.md` § Deployment Topology.
+`/etc/hosts` VM đã có `127.0.0.1 wuwa-toolkit.local`.
+
+- **Laptop (máy host VM)**: resolve qua mDNS, **không** dùng hosts file. `local-aliases.service` trên VM publish `wuwa-toolkit.local` → IP ens33 (vmnet8) hiện hành và tự publish lại khi IP đổi, nên chạy được ở mọi WiFi. Nguồn ở `~/Projects/infra/mdns/`.
+- **PC LAN**: vẫn cần hosts entry trỏ IP ens37 (modem chặn mDNS multicast).
+
+Chi tiết troubleshoot mạng VM (ens33 NAT, ens37 bridged, Viettel modem, checklist) ở `~/.claude/docs/NETWORK.md`.
 
 ---
 
@@ -193,7 +198,7 @@ ALLOWED_ORIGINS=http://localhost:5174
 ## GitHub
 
 Repo: <https://github.com/MinhBN-dev/wuwa-toolkit> (private, renamed from `echoes-optimizer` ngày 2026-05-08 — old URL redirects).
-Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiết push policy + tạo repo mới ở global `~/.claude/CLAUDE.md`.
+Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiết push policy + tạo repo mới ở `~/.claude/docs/GITHUB.md`.
 
 ---
 
@@ -211,7 +216,8 @@ Credentials lưu trong `~/.git-credentials` (credential.helper=store). Chi tiế
 
 ### `wuwa-toolkit.local` không resolve
 - VM: `getent hosts wuwa-toolkit.local` — phải ra `127.0.0.1`.
-- LAN client: thêm `<VM-IP> wuwa-toolkit.local` vào hosts file (modem chặn mDNS).
+- Laptop: `systemctl is-active local-aliases.service` trên VM phải `active`; kiểm tra bằng `python3 ~/Projects/infra/mdns/mdns_query.py wuwa-toolkit.local` (đừng dùng `getent` — `/etc/hosts` che mất kết quả mDNS). Laptop còn dòng `.local` trong hosts file thì xoá, nó thắng mDNS.
+- PC LAN: thêm `<IP-ens37> wuwa-toolkit.local` vào hosts file (modem chặn mDNS).
 
 ### Frontend local không gọi được API
 - `vite.config.ts` proxy `/api` + `/uploads` → `http://localhost:8001` (port BE local dev).
